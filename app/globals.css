@@ -463,6 +463,12 @@ kbd {
 /* ---------- narrow screens ---------- */
 
 @media (max-width: 760px) {
+  .hist {
+    left: var(--s-4);
+    right: var(--s-4);
+    width: auto;
+    max-width: none;
+  }
   .topbar {
     padding: 0 var(--s-2) 0 var(--s-4);
     gap: var(--s-2);
@@ -655,20 +661,21 @@ kbd {
   margin-right: calc(-1 * var(--s-2));
 }
 
+/* before and after run inline, like the diff in the document; the whole change is clamped */
 .hist-change {
   margin: 2px 0 var(--s-1);
   font-size: var(--ui-13);
-  line-height: 1.5;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
 .hist-before,
 .hist-after {
   border-radius: var(--r-1);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  display: -webkit-inline-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
 }
 .hist-before {
   color: var(--del-ink);
@@ -684,7 +691,7 @@ kbd {
   text-underline-offset: 3px;
 }
 .hist-before + .hist-after {
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
 .hist-reason {

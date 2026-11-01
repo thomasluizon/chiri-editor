@@ -28,6 +28,7 @@ function fakeReview(doc) {
     ],
     dropped: [],
     usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 1 },
+    model: "anthropic/claude-sonnet-5.5",
   };
 }
 
@@ -62,6 +63,39 @@ for (const w of widths) {
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${out}/default-${w.name}-${theme}.png` });
 
+    // history: accept the first suggestion, reject the next, open the panel
+    const cards = page.locator(".sg-card");
+    if (w.width > 760) {
+      await cards.nth(0).getByRole("button", { name: /Accept/ }).click();
+      await page.waitForTimeout(300);
+      await cards.nth(0).getByRole("button", { name: /Reject/ }).click();
+    } else {
+      await page.locator(".sg-card.is-inline").getByRole("button", { name: /Accept/ }).click();
+      await page.waitForTimeout(300);
+      await page.locator(".sg-card.is-inline").getByRole("button", { name: /Reject/ }).click();
+    }
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /AI history/ }).click();
+    await page.getByRole("dialog", { name: "AI history" }).waitFor();
+    await settle(page);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${out}/history-${w.name}-${theme}.png` });
+    await page.keyboard.press("Escape");
+
+    // slash: "/t" at the start of a paragraph
+    await page.evaluate(() => {
+      const v = window.__view;
+      v.focus();
+      v.dispatch({ selection: { anchor: v.state.doc.toString().indexOf("We also simplified") }, userEvent: "select" });
+    });
+    await page.keyboard.type("/");
+    await page.getByRole("listbox", { name: "AI actions" }).waitFor();
+    await settle(page);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${out}/slash-${w.name}-${theme}.png` });
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Backspace");
+
     // ask: ⌘K on the "New accounts" paragraph
     await page.evaluate(() => {
       const v = window.__view;
@@ -81,7 +115,7 @@ for (const w of widths) {
     await page.waitForTimeout(600);
     await page.screenshot({ path: `${out}/thinking-${w.name}-${theme}.png` });
 
-    console.log(`${w.name} ${theme}: default, ask, thinking`);
+    console.log(`${w.name} ${theme}: default, history, slash, ask, thinking`);
     await ctx.close();
   }
 }
