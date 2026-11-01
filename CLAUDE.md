@@ -12,6 +12,7 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 
 - `npm run test:e2e`: Playwright, SPEC 7.4 (21–32). It starts its own dev server on port 3210 with an invalid key, and `/api/suggest` is intercepted in the browser.
 - `node scripts/live-walkthrough.mjs <url> [--mock]`: drives the real UI through review, accept, reject, refine ×2 and typing during ⌘K, with screenshots in `design/screenshots/live/`. **Without `--mock` it calls the real models (about 1¢), so ask first.**
+- `npm run sessions:export`: copies this project's latest Claude Code session and its subagent logs into `ai-sessions/`, masking OpenRouter keys; exits 1 if anything key-like is left. Run it after the session ends.
 - `npm run credit`: the key's remaining credit (GET /api/v1/key, not billed).
 - `npm run eval -- --dry-run [--models …]`: the eval against a fake model. Free and offline; reports go to `eval/reports/dry/` (git-ignored). Run this before any live eval.
 - `npm run eval -- [--models haiku,luna,sonnet] [--case name] [--max-usd 0.15]`: **real API calls, costs money.** Ask before running it. Every call's worst case is checked against `--max-usd` before it's sent.

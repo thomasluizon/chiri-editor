@@ -12,7 +12,8 @@
     "test": "vitest run",
     "eval": "tsx eval/run.ts",
     "test:e2e": "playwright test",
-    "credit": "tsx scripts/credit.ts"
+    "credit": "tsx scripts/credit.ts",
+    "sessions:export": "node scripts/export-sessions.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
