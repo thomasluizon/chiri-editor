@@ -175,7 +175,7 @@ States:
 
 ### Slash menu
 - Attached under the `/`: its left edge is aligned with the slash, 8px below its line (above the line if there isn't room). 260px wide, `--raised`, 1px `--line-strong`, `--r-4`, `--shadow-pop`, 4px padding. Same family as the Ask popover.
-- Items are 32px rows, 13px `--ink`, with a 16px icon in `--ink-3` (presets: `wand-sparkles` is avoided; use `pen-line`; Review doc: `file-search`; Ask AI: the accent "A" mark). The highlighted row gets a `--sunk` fill and `--r-2` radius. No hover-only highlight: the mouse moves the same highlight.
+- Items are 32px rows, 13px `--ink`, with a 16px icon in `--ink-3` (presets: `pen-line`; Review doc: `file-search`; Ask AI: the accent "A" mark). The highlighted row gets a `--sunk` fill and `--r-2` radius. No hover-only highlight: the mouse moves the same highlight.
 - *Ask AI: "…"* shows the typed text in `--ink-2`, truncated with an ellipsis.
 - A footer hint (11px `--ink-3`): "↑↓ to move · ↵ to pick · esc to close".
 - The typed `/query` in the document keeps a faint `--selection` background while the menu is open, so it's clear what will be removed.
