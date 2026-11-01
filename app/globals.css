@@ -558,3 +558,165 @@ kbd {
   color: var(--ink-2);
   font-size: var(--ui-14);
 }
+
+/* ---------- AI history (DESIGN.md "History panel") ---------- */
+
+.hist-toggle {
+  position: relative;
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.hist-toggle.is-open {
+  background: var(--sunk);
+  color: var(--ink);
+}
+.hist-toggle__count {
+  font-size: var(--ui-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.hist {
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--bar-h) + 4px);
+  right: var(--s-3);
+  width: 380px;
+  max-width: calc(100vw - 2 * var(--s-4));
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-ui);
+  animation: pop-in var(--t-enter);
+}
+
+.hist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: 40px;
+  padding: 0 var(--s-2) 0 var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.hist__title {
+  color: var(--ink);
+  font-weight: 600;
+}
+.hist__confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-2);
+  font-size: var(--ui-12);
+}
+
+.hist__empty {
+  margin: 0;
+  padding: var(--s-5);
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.hist__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.hist-item {
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.hist-item:last-child {
+  border-bottom: 0;
+}
+
+.hist-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: 24px;
+  color: var(--ink-3);
+  font-size: var(--ui-12);
+}
+.hist-meta .btn {
+  margin-right: calc(-1 * var(--s-2));
+}
+
+.hist-change {
+  margin: 2px 0 var(--s-1);
+  font-size: var(--ui-13);
+  line-height: 1.5;
+}
+.hist-before,
+.hist-after {
+  border-radius: var(--r-1);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  display: -webkit-inline-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.hist-before {
+  color: var(--del-ink);
+  background: var(--del-bg);
+  text-decoration: line-through;
+  text-decoration-color: var(--del-line);
+}
+.hist-after {
+  color: var(--ins-ink);
+  background: var(--ins-bg);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+.hist-before + .hist-after {
+  margin-left: 4px;
+}
+
+.hist-reason {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--ui-13);
+  line-height: 1.45;
+}
+
+.hist-state {
+  color: var(--ink-3);
+  font-size: var(--ui-12);
+}
+.hist-state.is-changed {
+  margin: var(--s-1) 0 0;
+  color: var(--del-ink);
+}
+
+/* rejected: listed, but visibly quieter than accepted changes */
+.hist-item.is-rejected .hist-change,
+.hist-item.is-rejected .hist-reason {
+  font-size: var(--ui-12);
+}
+.hist-item.is-rejected .hist-before,
+.hist-item.is-rejected .hist-after {
+  color: var(--ink-3);
+  background: none;
+  text-decoration-color: var(--ink-3);
+}
+.hist-item.is-rejected .hist-reason {
+  color: var(--ink-3);
+}
+.hist-item.is-reverted .hist-change {
+  opacity: 0.6;
+}

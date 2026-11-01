@@ -6,6 +6,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, drawSelection, keymap, type ViewUpdate } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { suggestionKeymap } from "@/lib/editor/keymap";
+import { historyExtension, type HistoryEntry } from "@/lib/editor/history";
 import { livePreview } from "@/lib/editor/livePreview";
 import { markdownLines } from "@/lib/editor/markdownLines";
 import { suggestionsExtension } from "@/lib/editor/suggestions";
@@ -14,24 +15,28 @@ import { editorStyling } from "@/lib/editor/theme";
 type Props = {
   /** Read once, on mount (client only, so it can come from localStorage). */
   getInitialDoc: () => string;
+  /** Saved AI history for that doc (SPEC §10). */
+  getInitialHistory: (docLength: number) => HistoryEntry[];
   onReady: (view: EditorView) => void;
   onUpdate: (update: ViewUpdate) => void;
   onAsk: () => boolean;
 };
 
 /** Mounts CodeMirror once. All later interaction goes through the view. */
-export function Editor({ getInitialDoc, onReady, onUpdate, onAsk }: Props) {
+export function Editor({ getInitialDoc, getInitialHistory, onReady, onUpdate, onAsk }: Props) {
   const host = useRef<HTMLDivElement>(null);
   // keep callbacks fresh without rebuilding the editor
   const cb = useRef({ onUpdate, onAsk });
   cb.current = { onUpdate, onAsk };
 
   useEffect(() => {
+    const doc = getInitialDoc();
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
-        doc: getInitialDoc(),
+        doc,
         extensions: [
+          historyExtension(getInitialHistory(doc.length)),
           history(),
           drawSelection(),
           EditorView.lineWrapping,

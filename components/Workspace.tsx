@@ -2,10 +2,11 @@
 
 import { ChangeSet } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isAbort, postSuggest } from "@/lib/client/api";
+import { historyField, loadHistory, revertEntry, serializeHistory, setHistory, type HistoryEntry } from "@/lib/editor/history";
 import { mapRange } from "@/lib/editor/mapping";
 import { paragraphAt } from "@/lib/editor/paragraph";
 import { placeSuggestions } from "@/lib/editor/place";
@@ -29,11 +30,13 @@ import { SAMPLE_DOC } from "@/lib/sampleDoc";
 import type { Range, Suggestion, SuggestRequest, SuggestResponse } from "@/lib/types";
 import { AskPopover, type AskPhase } from "./AskPopover";
 import { Editor } from "./Editor";
+import { HistoryPanel } from "./HistoryPanel";
 import { MarginCards } from "./MarginCards";
 import { SuggestionCard, type RefineUI } from "./SuggestionCard";
 import { ThemeToggle } from "./ThemeToggle";
 
 const STORAGE_KEY = "draft:doc";
+const HISTORY_KEY = "draft:history";
 const POPOVER_W = 440;
 
 type Ask = { phase: AskPhase; scope: "paragraph" | "selection"; target: Range; message?: string; requestId?: string };
@@ -61,6 +64,14 @@ function loadDoc(): string {
     return localStorage.getItem(STORAGE_KEY) ?? SAMPLE_DOC;
   } catch {
     return SAMPLE_DOC;
+  }
+}
+
+function loadSavedHistory(docLength: number): HistoryEntry[] {
+  try {
+    return loadHistory(localStorage.getItem(HISTORY_KEY), docLength);
+  } catch {
+    return [];
   }
 }
 
@@ -95,6 +106,8 @@ export function Workspace() {
   const [words, setWords] = useState(() => countWords(SAMPLE_DOC));
   const [title, setTitle] = useState(() => titleOf(SAMPLE_DOC.split("\n")[0]));
   const [scrolled, setScrolled] = useState(false);
+  const [history, setHistoryList] = useState<HistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const narrow = useMediaQuery("(max-width: 760px)");
 
   /* ----- layout: card anchors + popover position, read in CodeMirror's measure phase ----- */
@@ -135,16 +148,22 @@ export function Workspace() {
 
   const onUpdate = useCallback(
     (u: ViewUpdate) => {
+      const historyChanged = u.state.field(historyField) !== u.startState.field(historyField);
       if (u.docChanged) {
         // every request in flight needs to know what changed since it was sent
         for (const p of pending.current.values()) p.changes = p.changes.compose(u.changes);
-        const doc = u.state.doc.toString();
-        setWords(countWords(doc));
+        setWords(countWords(u.state.doc.toString()));
         setTitle(titleOf(u.state.doc.line(1).text));
+      }
+      if (historyChanged) setHistoryList(u.state.field(historyField));
+      if (u.docChanged || historyChanged) {
+        // the doc and the history's ranges are saved together, so they always match
+        const state = u.state;
         window.clearTimeout(saveTimer.current);
         saveTimer.current = window.setTimeout(() => {
           try {
-            localStorage.setItem(STORAGE_KEY, doc);
+            localStorage.setItem(STORAGE_KEY, state.doc.toString());
+            localStorage.setItem(HISTORY_KEY, serializeHistory(state.field(historyField)));
           } catch {
             // private mode or full storage: keep editing, just don't persist
           }
@@ -248,7 +267,7 @@ export function Workspace() {
     try {
       const res = await req.done;
       if (askReqId.current !== req.id) return; // superseded: a newer ⌘K owns the popover
-      const placed = placeSuggestions(view, req.changes(), res);
+      const placed = placeSuggestions(view, req.changes(), res, undefined, "ask");
       if (placed.added.length) {
         askReqId.current = undefined;
         setAsk(null);
@@ -271,6 +290,8 @@ export function Workspace() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [ask, closeAsk]);
+
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
 
   /* ----- refine ----- */
 
@@ -324,6 +345,7 @@ export function Workspace() {
       setWords(countWords(view.state.doc.toString()));
       setTitle(titleOf(view.state.doc.line(1).text));
       setSg(getSuggestions(view.state));
+      setHistoryList(view.state.field(historyField));
       scheduleMeasure(view);
       document.fonts?.ready.then(() => scheduleMeasure(view));
     },
@@ -438,6 +460,17 @@ export function Workspace() {
               Cancel
             </button>
           )}
+          <button
+            type="button"
+            className={historyOpen ? "icon-btn hist-toggle is-open" : "icon-btn hist-toggle"}
+            aria-label={`AI history${history.length ? ` (${history.length})` : ""}`}
+            aria-expanded={historyOpen}
+            title="AI history"
+            onClick={() => setHistoryOpen((o) => !o)}
+          >
+            <History size={15} strokeWidth={1.75} />
+            {history.length > 0 && <span className="hist-toggle__count">{history.length}</span>}
+          </button>
           <button type="button" className="btn btn--secondary" onClick={reviewDoc} disabled={!!reviewId}>
             {reviewId ? <span className="shimmer-text">Reviewing…</span> : "Review doc"}
           </button>
@@ -445,9 +478,24 @@ export function Workspace() {
         </div>
       </header>
 
+      {historyOpen && (
+        <HistoryPanel
+          entries={history}
+          onRevert={(id) => (viewRef.current ? revertEntry(viewRef.current, id) : "unavailable")}
+          onClear={() => viewRef.current?.dispatch({ effects: setHistory.of([]) })}
+          onClose={closeHistory}
+        />
+      )}
+
       <main className="stage">
         <div className="doc-col" ref={docColRef}>
-          <Editor getInitialDoc={loadDoc} onReady={onReady} onUpdate={onUpdate} onAsk={openAsk} />
+          <Editor
+            getInitialDoc={loadDoc}
+            getInitialHistory={loadSavedHistory}
+            onReady={onReady}
+            onUpdate={onUpdate}
+            onAsk={openAsk}
+          />
           {ask && askPos && (
             <AskPopover
               phase={ask.phase}
