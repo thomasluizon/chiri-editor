@@ -154,7 +154,7 @@ These are OpenRouter list prices fetched from `GET /api/v1/models` on **2026-11-
 
 \*Assumes about 4k input tokens and 600 output tokens.
 
-**How we'll compare them.** Run `npm run eval -- --models haiku,luna,sonnet` (§7.5) once the prompts and `suggest()` exist. That's 4 cases × 3 models = 12 calls, about **$0.07**. The script writes a side-by-side report for each case showing every model's note, placed suggestions, dropped edits, latency and cost. **You pick the model from that report.** Then we set the default `OPENROUTER_MODEL` and commit the report as `eval/reports/model-comparison.md`, as evidence for the choice.
+**How we'll compare them.** Run `npm run eval -- --models haiku,luna,sonnet` (§7.5) once the prompts and `suggest()` exist. That's 4 cases × 3 models = 12 calls, about **$0.07**. The script writes a side-by-side report for each case showing every model's note, placed suggestions, dropped edits, latency and cost. **You pick the model from that report.** Then we set the defaults (`OPENROUTER_MODEL_REVIEW`, `OPENROUTER_MODEL_EDIT`) and commit the report under `eval/reports/`, as evidence for the choice.
 
 **First run (2026-11-01):** `eval/reports/2026-11-01-17-42-haiku-luna-sonnet.md`. Haiku 5.5 and GPT-6 Luna both passed 14 of 15 checks, counting the one false negative noted in the report. Luna averaged 2.5 s per call and Haiku 3.2 s. Neither had a single quote dropped. Sonnet 5.5 didn't run at all, because it can't turn reasoning off.
 
@@ -234,7 +234,7 @@ The same script is used for prompt tuning and for the model comparison. It calls
 **Output:**
 - A terminal summary table: one row per case × model with checks passed, placed/dropped counts, latency and cost.
 - A Markdown report in `eval/reports/` with the full side-by-side output for each case: the model's note, then each suggestion as `quote → replacement — reason`, then the dropped edits with their reasons. Columns are the models.
-- Flags: `--models <list>` (default: `OPENROUTER_MODEL`) and `--case <name>`. Calls run one at a time so the latency numbers are fair.
+- Flags: `--models <list>` (default: the review and edit models, from `OPENROUTER_MODEL_REVIEW` / `OPENROUTER_MODEL_EDIT`), `--case <name>`, `--max-usd` and `--dry-run`. Calls run one at a time so the latency numbers are fair.
 
 ## 8. Planned layout
 
@@ -253,7 +253,7 @@ tests/unit, tests/e2e
 
 ## 9. Project hygiene
 
-- The key lives only in `.env` (`OPENROUTER_API_KEY`, optionally `OPENROUTER_MODEL`), which Next.js loads on the server. `.env` is git-ignored, and an `.env.example` gets committed.
-- `.claude/settings.json` blocks Claude Code from reading or editing `.env*`. Limitation: the `Read`/`Edit` rules fully cover the built-in tools, but the `Bash` rules only block the common commands (`cat`, `grep`, `source`, `printenv`, and so on). Something like `node -e` could still get around them, so we also stick to that rule by choice. Code reads the key only through `process.env` on the server.
+- The key lives only in `.env` (`OPENROUTER_API_KEY`, optionally `OPENROUTER_MODEL_REVIEW` and `OPENROUTER_MODEL_EDIT`), which Next.js loads on the server. `.env` is git-ignored, and an `.env.example` gets committed.
+- `.claude/settings.json` blocks Claude Code from reading or editing `.env`, `.env.local` and `.env.*.local`, the files that can hold secrets. `.env.example` is left open. Limitation: the `Read`/`Edit` rules fully cover the built-in tools, but the `Bash` rules only block the common commands (`cat`, `grep`, `source`, `printenv`, and so on). Something like `node -e` could still get around them, so we also stick to that rule by choice. Code reads the key only through `process.env` on the server.
 - The brief requires committing the raw Claude Code session `.jsonl` files. Before committing them we grep for `sk-or-` and mask any match. That's the only change the brief allows.
 - README: how to run, what we built, and what we'd do differently, as the brief asks.
