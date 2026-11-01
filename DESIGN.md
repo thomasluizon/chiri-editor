@@ -163,6 +163,23 @@ States:
 - **Error**: one line in `--del-ink` ("Couldn't reach the model. Try again.") with Retry.
 - **Closed**: Esc, or a click outside.
 
+### History panel
+- The top bar gets a **History** icon button (lucide `history`, 28px, same states as the theme toggle), left of Review doc, with a small count when there are entries.
+- The panel drops from the button: 380px wide (full width minus 16px gutters on narrow screens), `--raised`, 1px `--line-strong`, `--r-4`, `--shadow-pop`, up to 70vh with its own scroll. Enter: `--t-enter`.
+- Header row: "AI history" (13px `--ink`, 600) and, on the right, *Clear* (text button). Clicking Clear turns it into "Clear all? *Yes* / *Cancel*", with no modal.
+- **Accepted entry:** meta line (12px `--ink-3`): source · model short name ("Sonnet 5.5") · relative time. Then the change, 13px: the before text in the deletion style and the after text in the insertion style, each clamped to 3 lines. Then the reason (13px `--ink-2`). *Revert* is a text button on the meta line, on the right.
+- **States:** *Reverted* replaces the button with a 12px `--ink-3` label. *Changed* replaces the button with "Text changed since, so it can't be reverted" in 12px `--del-ink`.
+- **Rejected entry:** one row, 12px `--ink-3`: "Rejected · <reason>", with the before text struck in `--ink-3` (not red). No background. It's visibly quieter than an accepted entry.
+- Entries are separated by 1px `--line` hairlines. Empty state: "Accepted and rejected AI suggestions show up here." (13px `--ink-3`), centred, with 24px padding.
+- Closes with Esc, a click outside, or the button again.
+
+### Slash menu
+- Attached under the `/`: its left edge is aligned with the slash, 8px below its line (above the line if there isn't room). 260px wide, `--raised`, 1px `--line-strong`, `--r-4`, `--shadow-pop`, 4px padding. Same family as the Ask popover.
+- Items are 32px rows, 13px `--ink`, with a 16px icon in `--ink-3` (presets: `wand-sparkles` is avoided; use `pen-line`; Review doc: `file-search`; Ask AI: the accent "A" mark). The highlighted row gets a `--sunk` fill and `--r-2` radius. No hover-only highlight: the mouse moves the same highlight.
+- *Ask AI: "…"* shows the typed text in `--ink-2`, truncated with an ellipsis.
+- A footer hint (11px `--ink-3`): "↑↓ to move · ↵ to pick · esc to close".
+- The typed `/query` in the document keeps a faint `--selection` background while the menu is open, so it's clear what will be removed.
+
 ### Thinking shimmer (on the text)
 - The target keeps the neutral `--selection` tint from the ⌘K state, so it stays marked in every frame. A soft `--ins-bg-strong` band sweeps across it from left to right with `--shimmer`. The text colour doesn't change and the text stays editable.
 - A whole-document review gets the sweep only, without the tint. A tint over every line reads as "everything is selected".

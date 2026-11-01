@@ -28,6 +28,8 @@ There are two ways to ask:
 | D12 | **All prompts live in one file, `lib/prompts.ts`** | Most of the quality comes from the prompts. Keeping the system prompt, the review, ⌘K and refine templates, and the preset wording in one place makes them easy to read, compare and tune with the eval script. No other file contains prompt text. |
 | D13 | **Our shortcuts never take keys the editor or the OS already uses** | ⌘⌫ (delete to line start on macOS), ⌘↵ (CM6 "insert blank line") and Tab/Shift-Tab (list indenting) are left alone. See §4 for what we use instead. |
 | D14 | **Live preview: Markdown marks are hidden except on the lines being edited** | The document still reads like a document (DESIGN.md), and the stored text stays raw Markdown. If a suggestion touches a mark, that line shows its marks, so a diff never hides a syntax change. |
+| D15 | **AI history: every accept and reject is recorded, and an accepted change can be reverted only by the same rule as placement** (§10) | A collaborator you can't audit or undo later isn't one. Revert follows D4/D5: the accepted text is mapped through every edit since, and it's reverted only if the text there is still exactly what was accepted. Otherwise it says so and touches nothing. |
+| D16 | **A slash menu that reads its actions from `lib/prompts.ts`** (§11) | It's faster than ⌘K when you're already typing, and it can't drift from the ⌘K presets because it uses the same list (D12). |
 
 ### Placement rules (beyond plain exact matching)
 
@@ -93,6 +95,7 @@ type SuggestResponse = {
   }[];
   dropped: { quote: string; why: "not_found" | "ambiguous" | "overlap" | "noop" | "outside_scope" }[];
   usage: { inputTokens: number; outputTokens: number; costUsd: number | null; latencyMs: number };
+  model: string;         // the OpenRouter model that answered, shown in AI history (§10)
 };
 ```
 
@@ -236,6 +239,37 @@ The same script is used for prompt tuning and for the model comparison. It calls
 - A Markdown report in `eval/reports/` with the full side-by-side output for each case: the model's note, then each suggestion as `quote → replacement — reason`, then the dropped edits with their reasons. Columns are the models.
 - Flags: `--models <list>` (default: the review and edit models, from `OPENROUTER_MODEL_REVIEW` / `OPENROUTER_MODEL_EDIT`), `--case <name>`, `--max-usd` and `--dry-run`. Calls run one at a time so the latency numbers are fair.
 
+### 7.6 AI history (§10)
+
+Unit (pure functions and a CM6 `EditorState`, no browser):
+
+33. Accepting a suggestion records an entry with `before`, `after`, `reason`, `model` and `source`, plus the range of the accepted text in the new doc. Accept all records one entry per suggestion, each range correct.
+34. Entries follow later edits. Typing before the range shifts it. Reverting while the text is unchanged puts `before` back exactly and marks the entry `reverted`.
+35. Editing inside an accepted range makes revert refuse with `changed`, and the doc stays byte-for-byte the same. The same holds when the range was deleted.
+36. Rejecting a suggestion (one or all) records a `rejected` entry with no range.
+37. Persistence round trip: entries saved and loaded unchanged; entries whose range doesn't fit the loaded doc are kept but can't be reverted.
+
+End-to-end:
+
+38. **History panel.** After one accept and one reject, the History button opens a panel listing both, newest first. The accepted one shows before, after, reason and model; the rejected one is in the quieter style. Esc closes the panel.
+39. **Revert after editing elsewhere.** Accept, type in another paragraph, then Revert from the panel. The accepted text goes back to the original exactly, and the other edit stays.
+40. **Revert after the text changed.** Accept, edit inside the accepted text, then Revert. The panel says the text changed, and the doc is unchanged.
+41. **Reload and clear.** The history survives a reload. Clear empties it, and it's still empty after another reload.
+
+### 7.7 Slash menu (§11)
+
+Unit:
+
+42. **Trigger rules.** `/` at the start of a line or after a space opens the menu. It doesn't open after a non-space (`and/or`), inside inline code or a code block, or inside a URL or link destination.
+43. **Items.** The menu lists exactly `PRESET_LABELS` from `lib/prompts.ts`, in order, then *Review doc*, then *Ask AI…*. Typing filters by label (case-insensitive). With text typed, the last item is *Ask AI: "…"* with that text.
+
+End-to-end:
+
+44. **Pick a preset.** Typing `/tig` at the start of a paragraph filters to *Tighten*. Enter sends `mode: "suggest"`, `instruction: "Tighten"`, and `scope` = that paragraph, with `/tig` already removed from the doc.
+45. **Arrows and Review doc.** ArrowDown moves the highlight. Enter on *Review doc* sends a request with no `scope`, and the `/` is removed.
+46. **Esc.** It closes the menu and leaves `/` and the typed text in the doc.
+47. **Free text and no-trigger cases.** `/make it shorter` then Enter sends that text as the instruction. Typing `and/or`, `/` inside `` `code` ``, or `/` inside a URL opens no menu.
+
 ## 8. Planned layout
 
 ```
@@ -257,3 +291,23 @@ tests/unit, tests/e2e
 - `.claude/settings.json` blocks Claude Code from reading or editing `.env`, `.env.local` and `.env.*.local`, the files that can hold secrets. `.env.example` is left open. Limitation: the `Read`/`Edit` rules fully cover the built-in tools, but the `Bash` rules only block the common commands (`cat`, `grep`, `source`, `printenv`, and so on). Something like `node -e` could still get around them, so we also stick to that rule by choice. Code reads the key only through `process.env` on the server.
 - The brief requires committing the raw Claude Code session `.jsonl` files. Before committing them we grep for `sk-or-` and mask any match. That's the only change the brief allows.
 - README: how to run, what we built, and what we'd do differently, as the brief asks.
+
+## 10. AI history
+
+A **History** button in the top bar opens a small panel (DESIGN.md "History panel") listing every AI change, newest first.
+
+- **Accepted:** before → after (in the deletion and insertion styles), the reason, the model, where it came from (Review doc / ⌘K / slash menu / refine), and when. Each has **Revert**.
+- **Rejected:** listed in a quieter style (`--ink-3`), with the reason and the text it would have changed. There's no action.
+- **Revert** follows the placement rule (D4/D5). The accepted text's range is mapped through every edit since. If no edit touched it and the text there is still exactly `after`, it's replaced with `before` in one normal, undoable transaction. Otherwise the entry says "The text changed since, so it can't be reverted" and nothing is touched.
+- **Persistence:** entries live in a CM6 `StateField` and are saved to `localStorage` together with the doc, so ranges and text stay in sync across reloads. Entries whose range doesn't fit the loaded doc are shown but can't be reverted.
+- **Clear** empties the history, after a confirmation step in the panel.
+- The panel closes with Esc, a click outside, or the button.
+
+## 11. Slash menu
+
+Typing `/` opens a small menu attached under it (DESIGN.md "Slash menu"). It offers the ⌘K presets (read from `PRESET_LABELS` in `lib/prompts.ts`), **Review doc**, and **Ask AI…**.
+
+- **When it opens:** `/` at the start of a line or after whitespace. It never opens inside inline code, code blocks, URLs or link destinations, or after a non-space (`and/or`, `1/2`).
+- **Typing** after the `/` filters the list. If anything has been typed, the last item is *Ask AI: "<text>"*, which sends the text as a free instruction. *Ask AI…* with nothing typed opens the ⌘K box.
+- **Keys:** ↑/↓ move the highlight, Enter picks, Esc closes and leaves the `/` and the typed text as they are. Moving the cursor out of the `/…` text, or deleting the `/`, closes it too.
+- **Picking an item** first removes the `/` and the typed text, then acts on the paragraph the cursor is in, exactly like ⌘K with that instruction (same popover, same request, same model). *Review doc* reviews the whole document.
