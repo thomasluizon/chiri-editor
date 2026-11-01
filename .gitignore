@@ -17,5 +17,8 @@ test-results/
 next-env.d.ts
 *.tsbuildinfo
 
+# eval dry runs (fake model)
+eval/reports/dry/
+
 # design review output
 design/screenshots/

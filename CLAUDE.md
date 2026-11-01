@@ -4,15 +4,16 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 
 ## Commands
 
-- `npm run dev`: app on http://localhost:3000 (currently the design mock; `?state=ask` / `?state=thinking` show those states)
+- `npm run dev`: app on http://localhost:3000 (needs `OPENROUTER_API_KEY` in `.env`; see `.env.example`). Node ≥ 20.12.
+- `npm run screenshots -- <url>` drives the UI with `/api/suggest` mocked, so it shows the default, ⌘K and thinking states without spending anything
 - `npm run typecheck`
 - `npm test`: Vitest unit and API route tests (`tests/unit/`, OpenRouter mocked). Test names carry their SPEC §7 numbers.
-- `npm run screenshots -- <base url>`: design screenshots (1440/390 × light/dark × states) into `design/screenshots/`, which is git-ignored
+- Screenshots land in `design/screenshots/` (git-ignored)
 
 - `npm run test:e2e`: Playwright, SPEC 7.4 (21–32). It starts its own dev server on port 3210 with an invalid key, and `/api/suggest` is intercepted in the browser.
 - `node scripts/live-walkthrough.mjs <url> [--mock]`: drives the real UI through review, accept, reject, refine ×2 and typing during ⌘K, with screenshots in `design/screenshots/live/`. **Without `--mock` it calls the real models (about 1¢), so ask first.**
 - `npm run credit`: the key's remaining credit (GET /api/v1/key, not billed).
-- `npm run eval -- --dry-run [--models …]`: the eval against a fake model. Free, offline. Run this before any live eval.
+- `npm run eval -- --dry-run [--models …]`: the eval against a fake model. Free and offline; reports go to `eval/reports/dry/` (git-ignored). Run this before any live eval.
 - `npm run eval -- [--models haiku,luna,sonnet] [--case name] [--max-usd 0.15]`: **real API calls, costs money.** Ask before running it. Every call's worst case is checked against `--max-usd` before it's sent.
 
 

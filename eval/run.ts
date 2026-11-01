@@ -160,7 +160,8 @@ async function main() {
   const report = renderReport(runs, summary, spent, credit);
   const out =
     args.out ??
-    join("eval", "reports", `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${models.map((m) => m.label).join("-")}${dryRun ? "-dry" : ""}.md`);
+    // dry runs go to an ignored folder so fake reports never get committed by accident
+    join("eval", "reports", ...(dryRun ? ["dry"] : []), `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${models.map((m) => m.label).join("-")}.md`);
   mkdirSync(join(out, ".."), { recursive: true });
   writeFileSync(out, report);
 
