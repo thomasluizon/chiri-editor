@@ -1,0 +1,18 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps / build
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# misc
+.DS_Store
+*.log
+next-env.d.ts
+*.tsbuildinfo
