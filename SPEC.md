@@ -74,7 +74,7 @@ The ⌘K preset chips (*Tighten*, *Fix grammar*, *More formal*, *More casual*, *
 }
 ```
 
-In `refine` mode the schema requires exactly one edit whose `quote` equals `target.quote`.
+In `refine` mode the model returns `{ note, replacement, reason }`, with no `quote`: the range is already known from `target`, so there is nothing to locate or mismatch. The server trims the shared start and end the same way as in suggest mode.
 
 ### Response: `200`
 
@@ -105,7 +105,12 @@ An empty `suggestions` list is a normal answer. The UI shows the `note` (for exa
 | 502 | OpenRouter error, or the model output doesn't validate (message passed through, key never included) |
 | 504 | Upstream took longer than 30 s |
 
-Server-side limits: `max_tokens: 1200`, reasoning off, and a 30 s timeout.
+Server-side limits: `max_tokens: 1200`, reasoning off (`reasoning: {effort: "none"}`), and a 30 s timeout.
+
+Implementation notes, learned while building:
+- **No `temperature`.** None of the shortlisted models list it as supported on OpenRouter, and with `provider.require_parameters: true` (which makes sure the provider honours structured outputs) an unsupported parameter would leave no provider to route to.
+- **Limits live in zod, not the JSON schema.** Strict mode may reject keywords such as `maxItems`/`maxLength`, so the schema sent to the model is plain. "At most 5 edits" is in the prompt and enforced by zod: a sixth edit is a 502. A `reason` over 120 characters is cut at a word boundary rather than failing the whole response.
+- **Some models can't turn reasoning off.** Sonnet 5.5 rejects `effort: "none"` (see §6), so a model that needs reasoning would need its own setting.
 
 ## 4. UI behaviour
 
@@ -148,6 +153,8 @@ These are OpenRouter list prices fetched from `GET /api/v1/models` on **2026-11-
 \*Assumes about 4k input tokens and 600 output tokens.
 
 **How we'll compare them.** Run `npm run eval -- --models haiku,luna,sonnet` (§7.5) once the prompts and `suggest()` exist. That's 4 cases × 3 models = 12 calls, about **$0.07**. The script writes a side-by-side report for each case showing every model's note, placed suggestions, dropped edits, latency and cost. **You pick the model from that report.** Then we set the default `OPENROUTER_MODEL` and commit the report as `eval/reports/model-comparison.md`, as evidence for the choice.
+
+**First run (2026-11-01):** `eval/reports/2026-11-01-17-42-haiku-luna-sonnet.md`. Haiku 5.5 and GPT-6 Luna both passed 14 of 15 checks, counting the one false negative noted in the report. Luna averaged 2.5 s per call and Haiku 3.2 s. Neither had a single quote dropped. Sonnet 5.5 didn't run at all, because it can't turn reasoning off. The default model stays Haiku until you pick.
 
 **Budget.** Development and every automated test use mocked responses. The live spend I expect (comparison, a few rounds of prompt tuning, a final eval run) is under **$0.40**, which leaves more than $4.50 for reviewers. Sonnet at roughly $0.014 per request would still allow about 300 reviewer requests, if it wins.
 

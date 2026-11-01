@@ -18,3 +18,5 @@ export function kindOf(s: Pick<Suggestion, "from" | "to" | "replacement">): Sugg
 }
 
 export type Range = { from: number; to: number };
+
+export type { DropReason, PlacedSuggestion, SuggestRequest, SuggestResponse } from "@/lib/server/schema";

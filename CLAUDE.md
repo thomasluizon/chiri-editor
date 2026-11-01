@@ -6,13 +6,14 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 
 - `npm run dev`: app on http://localhost:3000 (currently the design mock; `?state=ask` / `?state=thinking` show those states)
 - `npm run typecheck`
-- `npm test`: Vitest unit tests (`tests/unit/`)
+- `npm test`: Vitest unit and API route tests (`tests/unit/`, OpenRouter mocked). Test names carry their SPEC §7 numbers.
 - `npm run screenshots -- <base url>`: design screenshots (1440/390 × light/dark × states) into `design/screenshots/`, which is git-ignored
 
+- `npm run eval -- --dry-run [--models …]`: the eval against a fake model. Free, offline. Run this before any live eval.
+- `npm run eval -- [--models haiku,luna,sonnet] [--case name] [--max-usd 0.15]`: **real API calls, costs money.** Ask before running it. Every call's worst case is checked against `--max-usd` before it's sent.
+
 Planned, not wired yet:
-- API route tests in `npm test` (OpenRouter mocked)
 - `npm run test:e2e`: Playwright (`/api/suggest` is intercepted, no API calls)
-- `npm run eval -- [--models haiku,luna,sonnet] [--case name]`: **real API calls, costs money.** Ask before running it.
 
 ## Things that aren't obvious from the code
 
@@ -27,3 +28,4 @@ Planned, not wired yet:
 - **Next 16 writes `AGENTS.md`** on `next dev`, pointing to the bundled docs in `node_modules/next/dist/docs/`. Check those before using a Next API from memory.
 - **Design tokens** live in `DESIGN.md` and `app/tokens.css`. Change both together, and keep the two dark blocks in `tokens.css` identical.
 - **Live preview hides Markdown marks** but never edits the text. Positions are always raw-doc offsets. If you add a new syntax mark, update `findMarks` and its tests; a hidden mark must never sit inside a suggestion's range (`revealedLines` handles that).
+- **OpenRouter request shape:** don't add `temperature` (the chosen models don't support it, and `require_parameters` would then find no provider). Sonnet 5.5 rejects `reasoning: {effort: "none"}`.

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-export const PRESETS = ["Tighten", "Fix grammar", "More formal", "More casual", "Clarify"] as const;
+import { PRESET_LABELS } from "@/lib/prompts";
 
 export type AskPhase = "input" | "thinking" | "error";
 
@@ -74,7 +73,7 @@ export function AskPopover({ phase, scope, style, onSubmit, onCancel }: Props) {
 
       {phase === "input" && (
         <div className="ask__chips">
-          {PRESETS.map((p) => (
+          {PRESET_LABELS.map((p) => (
             <button key={p} type="button" className="chip" onClick={() => onSubmit(p)}>
               {p}
             </button>
