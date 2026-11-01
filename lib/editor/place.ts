@@ -1,17 +1,9 @@
 import type { ChangeSet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import type { Range, Suggestion, SuggestResponse } from "@/lib/types";
+import { conflicts } from "@/lib/ranges";
+import type { Suggestion, SuggestResponse } from "@/lib/types";
 import { mapSuggestion } from "./mapping";
 import { getSuggestions, setSuggestions } from "./suggestions";
-
-/**
- * Two suggestions conflict if their ranges overlap, or if either is an
- * insertion sitting inside or on the edge of the other.
- */
-export function conflicts(a: Range, b: Range): boolean {
-  if (a.from === a.to || b.from === b.to) return a.from <= b.to && b.from <= a.to;
-  return a.from < b.to && b.from < a.to;
-}
 
 export type Placement = { added: Suggestion[]; stale: number; targetGone: boolean };
 

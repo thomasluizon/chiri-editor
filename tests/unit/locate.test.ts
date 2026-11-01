@@ -157,4 +157,13 @@ describe("review fixes: placement", () => {
     expect(placed[0]).toMatchObject({ quote: "café", replacement: "cafè" });
     expect(doc.slice(placed[0].from, placed[0].to)).toBe("café");
   });
+
+  it("R6. edits whose trimmed ranges touch are dropped as overlap on the server, like the client would", () => {
+    // trimmed: an insertion of " x" at 3, and a replacement of " " by "!" starting at 3
+    const doc = "abc def";
+    const { placed, dropped } = locateEdits(doc, [edit("abc", "abc x"), edit(" def", "!def")]);
+    expect(placed).toHaveLength(1);
+    expect(placed[0]).toMatchObject({ from: 3, to: 3, replacement: " x" });
+    expect(dropped).toEqual([{ quote: " def", why: "overlap" }]);
+  });
 });

@@ -1,3 +1,4 @@
+import { conflicts } from "@/lib/ranges";
 import type { Range } from "@/lib/types";
 import type { DropReason, ModelEdit } from "./schema";
 
@@ -9,9 +10,11 @@ import type { DropReason, ModelEdit } from "./schema";
  *   1. a no-op (replacement === quote) or empty quote is dropped
  *   2. the quote must occur exactly once inside `scope` (or the doc);
  *      0 → not_found / outside_scope, 2+ → ambiguous
- *   3. if it overlaps an edit already placed, it's dropped as overlap
- *   4. the shared start and end of quote/replacement are trimmed, snapped to
+ *   3. the shared start and end of quote/replacement are trimmed, snapped to
  *      word boundaries, so the stored range is as small as it can be
+ *   4. if its quote overlaps an edit already placed, or its trimmed range
+ *      conflicts with one (the client's rule, lib/ranges.ts), it's dropped
+ *      as overlap
  */
 
 export type Located = { from: number; to: number; quote: string; replacement: string; reason: string };
@@ -45,16 +48,16 @@ export function locateEdits(doc: string, edits: ModelEdit[], scope?: Range): Loc
     }
 
     const full = { from: offset + hits[0], to: offset + hits[0] + e.quote.length };
-    if (placed.some((p) => full.from < p.full.to && p.full.from < full.to)) {
+    const { prefix, suffix } = sharedEnds(e.quote, e.replacement);
+    const trimmed = { from: full.from + prefix, to: full.to - suffix };
+    if (placed.some((p) => (full.from < p.full.to && p.full.from < full.to) || conflicts(p, trimmed))) {
       dropped.push({ quote: e.quote, why: "overlap" });
       continue;
     }
 
-    const { prefix, suffix } = sharedEnds(e.quote, e.replacement);
     placed.push({
       full,
-      from: full.from + prefix,
-      to: full.to - suffix,
+      ...trimmed,
       quote: e.quote.slice(prefix, e.quote.length - suffix),
       replacement: e.replacement.slice(prefix, e.replacement.length - suffix),
       reason: e.reason,
