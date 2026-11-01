@@ -3,7 +3,7 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
-import { EditorView, drawSelection, keymap } from "@codemirror/view";
+import { EditorView, drawSelection, keymap, type ViewUpdate } from "@codemirror/view";
 import { useEffect, useRef } from "react";
 import { suggestionKeymap } from "@/lib/editor/keymap";
 import { livePreview } from "@/lib/editor/livePreview";
@@ -12,14 +12,15 @@ import { suggestionsExtension } from "@/lib/editor/suggestions";
 import { editorStyling } from "@/lib/editor/theme";
 
 type Props = {
-  initialDoc: string;
+  /** Read once, on mount (client only, so it can come from localStorage). */
+  getInitialDoc: () => string;
   onReady: (view: EditorView) => void;
-  onUpdate: (view: EditorView) => void;
+  onUpdate: (update: ViewUpdate) => void;
   onAsk: () => boolean;
 };
 
 /** Mounts CodeMirror once. All later interaction goes through the view. */
-export function Editor({ initialDoc, onReady, onUpdate, onAsk }: Props) {
+export function Editor({ getInitialDoc, onReady, onUpdate, onAsk }: Props) {
   const host = useRef<HTMLDivElement>(null);
   // keep callbacks fresh without rebuilding the editor
   const cb = useRef({ onUpdate, onAsk });
@@ -29,7 +30,7 @@ export function Editor({ initialDoc, onReady, onUpdate, onAsk }: Props) {
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
-        doc: initialDoc,
+        doc: getInitialDoc(),
         extensions: [
           history(),
           drawSelection(),
@@ -43,10 +44,12 @@ export function Editor({ initialDoc, onReady, onUpdate, onAsk }: Props) {
           // Tab indents (lists especially); Esc then Tab still leaves the editor for keyboard users
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           EditorView.contentAttributes.of({ "aria-label": "Document", spellcheck: "true" }),
-          EditorView.updateListener.of((u) => cb.current.onUpdate(u.view)),
+          EditorView.updateListener.of((u) => cb.current.onUpdate(u)),
         ],
       }),
     });
+    // e2e tests read the raw Markdown through this (live preview hides marks in the DOM)
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __view?: EditorView }).__view = view;
     onReady(view);
     return () => view.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps

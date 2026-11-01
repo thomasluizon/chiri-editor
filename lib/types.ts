@@ -7,6 +7,8 @@ export type Suggestion = {
   quote: string;
   replacement: string;
   reason: string;
+  /** Earlier refine rounds that led to this replacement (sent back on the next refine). */
+  history?: { instruction: string; replacement: string }[];
 };
 
 export type SuggestionKind = "insert" | "delete" | "replace";

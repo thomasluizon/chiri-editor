@@ -504,3 +504,57 @@ kbd {
     transition: border-color var(--t-fast);
   }
 }
+
+/* ---------- live states (refine, status) ---------- */
+
+.topbar__status.is-error {
+  color: var(--del-ink);
+}
+
+.sg-card__rounds {
+  color: var(--ink-3);
+}
+
+.sg-card__message {
+  margin: calc(-1 * var(--s-1)) 0 var(--s-2);
+  color: var(--ink-3);
+  font-size: var(--ui-12);
+}
+
+.sg-card__refine {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.sg-card__refine-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-2);
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--ui-13) / 1 var(--font-ui);
+}
+.sg-card__refine-input::placeholder {
+  color: var(--ink-3);
+}
+.sg-card__refine-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+}
+.btn--secondary:disabled {
+  opacity: 1;
+}
+
+.ask__done {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--ui-14);
+}

@@ -14,8 +14,8 @@ export type SuggestionState = {
   inlineCards: boolean;
   /** Ask popover target, highlighted while the popover is open. */
   askTarget: Range | null;
-  /** Range the AI is working on; shimmers. */
-  thinking: Range | null;
+  /** Ranges the AI is working on, one per request in flight; they shimmer. */
+  thinking: { id: string; range: Range }[];
 };
 
 export const setSuggestions = StateEffect.define<Suggestion[]>();
@@ -24,7 +24,8 @@ export const setActive = StateEffect.define<string | null>();
 export const setHover = StateEffect.define<string | null>();
 export const setInlineCards = StateEffect.define<boolean>();
 export const setAskTarget = StateEffect.define<Range | null>();
-export const setThinking = StateEffect.define<Range | null>();
+export const addThinking = StateEffect.define<{ id: string; range: Range }>();
+export const removeThinking = StateEffect.define<string>();
 
 const byFrom = (a: Suggestion, b: Suggestion) => a.from - b.from;
 
@@ -33,7 +34,7 @@ export function suggestionAt(items: Suggestion[], pos: number): Suggestion | und
 }
 
 export const suggestionField = StateField.define<SuggestionState>({
-  create: () => ({ items: [], active: null, hover: null, inlineCards: false, askTarget: null, thinking: null }),
+  create: () => ({ items: [], active: null, hover: null, inlineCards: false, askTarget: null, thinking: [] }),
 
   update(value, tr) {
     let next = value;
@@ -46,7 +47,7 @@ export const suggestionField = StateField.define<SuggestionState>({
         ...next,
         items,
         askTarget: value.askTarget && mapRange(value.askTarget, tr.changes),
-        thinking: value.thinking && mapRange(value.thinking, tr.changes),
+        thinking: value.thinking.map((t) => ({ id: t.id, range: mapRange(t.range, tr.changes) })),
       };
     }
 
@@ -57,7 +58,8 @@ export const suggestionField = StateField.define<SuggestionState>({
       else if (e.is(setHover)) next = { ...next, hover: e.value };
       else if (e.is(setInlineCards)) next = { ...next, inlineCards: e.value };
       else if (e.is(setAskTarget)) next = { ...next, askTarget: e.value };
-      else if (e.is(setThinking)) next = { ...next, thinking: e.value };
+      else if (e.is(addThinking)) next = { ...next, thinking: [...next.thinking, e.value] };
+      else if (e.is(removeThinking)) next = { ...next, thinking: next.thinking.filter((t) => t.id !== e.value) };
     }
 
     // The cursor decides which suggestion is active when the user moves it.
@@ -227,8 +229,8 @@ function buildDecorations(state: EditorState): DecorationSet {
   if (v.askTarget && v.askTarget.from < v.askTarget.to) {
     ranges.push(Decoration.mark({ class: "cm-ask-target" }).range(v.askTarget.from, v.askTarget.to));
   }
-  if (v.thinking && v.thinking.from < v.thinking.to) {
-    ranges.push(Decoration.mark({ class: "cm-thinking" }).range(v.thinking.from, v.thinking.to));
+  for (const { range } of v.thinking) {
+    if (range.from < range.to) ranges.push(Decoration.mark({ class: "cm-thinking" }).range(range.from, range.to));
   }
 
   return Decoration.set(ranges, true);

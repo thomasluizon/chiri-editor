@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Suggestion } from "@/lib/types";
-import { SuggestionCard } from "./SuggestionCard";
 
 const GAP = 8;
 const ESTIMATED_HEIGHT = 128;
@@ -37,15 +36,11 @@ type Props = {
   items: Suggestion[];
   anchors: Record<string, number>; // desired top per suggestion, relative to the margin column
   active: string | null;
-  hover: string | null;
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
-  onRefine: (id: string) => void;
-  onFocus: (id: string) => void;
-  onHover: (id: string | null) => void;
+  renderCard: (s: Suggestion, style: React.CSSProperties, ref: (el: HTMLDivElement | null) => void) => React.ReactNode;
 };
 
-export function MarginCards({ items, anchors, active, hover, ...actions }: Props) {
+/** Desktop: one card per suggestion in the right margin, next to its line. */
+export function MarginCards({ items, anchors, active, renderCard }: Props) {
   const [heights, setHeights] = useState<Record<string, number>>({});
   const refs = useRef(new Map<string, HTMLDivElement>());
 
@@ -65,24 +60,12 @@ export function MarginCards({ items, anchors, active, hover, ...actions }: Props
   return (
     <aside className="margin" aria-label="Suggestions">
       {items.map((s) =>
-        tops[s.id] === undefined ? null : (
-          <SuggestionCard
-            key={s.id}
-            ref={(el) => {
+        tops[s.id] === undefined
+          ? null
+          : renderCard(s, { transform: `translate(${s.id === active ? -8 : 0}px, ${tops[s.id]}px)` }, (el) => {
               if (el) refs.current.set(s.id, el);
               else refs.current.delete(s.id);
-            }}
-            suggestion={s}
-            active={s.id === active}
-            hover={s.id === hover}
-            style={{ transform: `translate(${s.id === active ? -8 : 0}px, ${tops[s.id]}px)` }}
-            onAccept={() => actions.onAccept(s.id)}
-            onReject={() => actions.onReject(s.id)}
-            onRefine={() => actions.onRefine(s.id)}
-            onFocus={() => actions.onFocus(s.id)}
-            onHover={(on) => actions.onHover(on ? s.id : null)}
-          />
-        ),
+            }),
       )}
     </aside>
   );
