@@ -9,6 +9,7 @@ import { isAbort, postSuggest } from "@/lib/client/api";
 import { historyField, loadHistory, revertEntry, serializeHistory, setHistory, type HistoryEntry } from "@/lib/editor/history";
 import { mapRange } from "@/lib/editor/mapping";
 import { paragraphAt } from "@/lib/editor/paragraph";
+import { closeSlash, pickSlash, setSlashIndex, slashField, slashItems, type SlashPick, type SlashState } from "@/lib/editor/slash";
 import { placeSuggestions } from "@/lib/editor/place";
 import {
   acceptAll,
@@ -27,11 +28,12 @@ import {
   type SuggestionState,
 } from "@/lib/editor/suggestions";
 import { SAMPLE_DOC } from "@/lib/sampleDoc";
-import type { Range, Suggestion, SuggestRequest, SuggestResponse } from "@/lib/types";
+import type { Range, Suggestion, SuggestionSource, SuggestRequest, SuggestResponse } from "@/lib/types";
 import { AskPopover, type AskPhase } from "./AskPopover";
 import { Editor } from "./Editor";
 import { HistoryPanel } from "./HistoryPanel";
 import { MarginCards } from "./MarginCards";
+import { SlashMenu } from "./SlashMenu";
 import { SuggestionCard, type RefineUI } from "./SuggestionCard";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -108,6 +110,8 @@ export function Workspace() {
   const [scrolled, setScrolled] = useState(false);
   const [history, setHistoryList] = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [slash, setSlash] = useState<SlashState>(null);
+  const [slashPos, setSlashPos] = useState<AskPos | null>(null);
   const narrow = useMediaQuery("(max-width: 760px)");
 
   /* ----- layout: card anchors + popover position, read in CodeMirror's measure phase ----- */
@@ -135,9 +139,16 @@ export function Workspace() {
             pos = { left: Math.min(Math.max(0, start.left - col.left), maxLeft), top: end.bottom - col.top + 8 };
           }
         }
-        return { next, pos };
+        let slashAt: AskPos | null = null;
+        const sl = view.state.field(slashField);
+        if (sl && col) {
+          const c = view.coordsAtPos(sl.from, 1);
+          if (c) slashAt = { left: Math.max(0, Math.min(c.left - col.left, col.width - 260)), top: c.bottom - col.top + 6 };
+        }
+        return { next, pos, slashAt };
       },
-      write({ next, pos }) {
+      write({ next, pos, slashAt }) {
+        setSlashPos((prev) => (prev && slashAt && prev.left === slashAt.left && prev.top === slashAt.top ? prev : slashAt));
         setAnchors((prev) => (sameRecord(prev, next) ? prev : next));
         setAskPos((prev) => (prev && pos && prev.left === pos.left && prev.top === pos.top ? prev : (pos ?? prev)));
       },
@@ -156,6 +167,7 @@ export function Workspace() {
         setTitle(titleOf(u.state.doc.line(1).text));
       }
       if (historyChanged) setHistoryList(u.state.field(historyField));
+      setSlash(u.state.field(slashField));
       if (u.docChanged || historyChanged) {
         // the doc and the history's ranges are saved together, so they always match
         const state = u.state;
@@ -241,20 +253,34 @@ export function Workspace() {
     viewRef.current?.focus();
   }, []);
 
-  async function submitAsk(instruction: string) {
+  /**
+   * Run an instruction on the ⌘K target. The slash menu passes its own target
+   * (the paragraph the cursor is in) and source; ⌘K uses the open popover's.
+   */
+  async function submitAsk(
+    instruction: string,
+    direct?: { target: Range; scope: "paragraph" | "selection" },
+    source: SuggestionSource = "ask",
+  ) {
     const view = viewRef.current;
-    if (!view || !ask) return;
+    if (direct) {
+      cancelRequest(askReqId.current); // a new ask replaces any running one
+      askReqId.current = undefined;
+    }
+    const base: Ask | null = direct ? { phase: "input", scope: direct.scope, target: direct.target } : ask;
+    if (!view || !base) return;
     // The editor tracks the target through edits whenever no request is running
     // (askTarget); while one runs, the request's own change log does (below).
-    const target = getSuggestions(view.state).askTarget ?? ask.target;
+    const target = direct ? direct.target : (getSuggestions(view.state).askTarget ?? base.target);
     if (target.from >= target.to) {
-      setAsk({ ...ask, target, phase: "error", message: "The paragraph is gone, so there's nothing to edit." });
+      const message = direct ? "There's no text in this paragraph to edit." : "The paragraph is gone, so there's nothing to edit.";
+      setAsk({ ...base, target, phase: "error", message });
       return;
     }
     view.dispatch({ effects: setAskTarget.of(null) });
     const req = startRequest((doc) => ({ mode: "suggest", doc, instruction, scope: target }), target);
     askReqId.current = req.id;
-    setAsk({ ...ask, target, phase: "thinking", requestId: req.id });
+    setAsk({ ...base, target, phase: "thinking", requestId: req.id });
 
     // where the target is now, after the edits made while the request ran
     const settle = (next: Partial<Ask>) => {
@@ -267,7 +293,7 @@ export function Workspace() {
     try {
       const res = await req.done;
       if (askReqId.current !== req.id) return; // superseded: a newer ⌘K owns the popover
-      const placed = placeSuggestions(view, req.changes(), res, undefined, "ask");
+      const placed = placeSuggestions(view, req.changes(), res, undefined, source);
       if (placed.added.length) {
         askReqId.current = undefined;
         setAsk(null);
@@ -280,6 +306,17 @@ export function Workspace() {
       settle({ phase: "error", message: errorText(e) });
     }
   }
+
+  /* ----- slash menu ----- */
+
+  const onSlashPick: SlashPick = (view, item, range) => {
+    // the "/query" goes first, so the request sees the paragraph as it should be
+    view.dispatch({ changes: { from: range.from, to: range.to }, effects: closeSlash.of(null), userEvent: "delete.slash" });
+    if (item.kind === "review") return void reviewDoc();
+    if (item.kind === "ask") return void openAsk();
+    const target = paragraphAt(view.state, view.state.selection.main.head);
+    void submitAsk(item.instruction, { target, scope: "paragraph" }, "slash");
+  };
 
   // Click outside closes the popover unless a request is running.
   useEffect(() => {
@@ -495,7 +532,17 @@ export function Workspace() {
             onReady={onReady}
             onUpdate={onUpdate}
             onAsk={openAsk}
+            onSlashPick={onSlashPick}
           />
+          {slash && slashPos && (
+            <SlashMenu
+              items={slashItems(slash.query)}
+              index={slash.index}
+              style={{ left: slashPos.left, top: slashPos.top }}
+              onPick={(i) => viewRef.current && pickSlash(viewRef.current, onSlashPick, i)}
+              onHighlight={(i) => viewRef.current?.dispatch({ effects: setSlashIndex.of(i) })}
+            />
+          )}
           {ask && askPos && (
             <AskPopover
               phase={ask.phase}

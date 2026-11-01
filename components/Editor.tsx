@@ -9,6 +9,7 @@ import { suggestionKeymap } from "@/lib/editor/keymap";
 import { historyExtension, type HistoryEntry } from "@/lib/editor/history";
 import { livePreview } from "@/lib/editor/livePreview";
 import { markdownLines } from "@/lib/editor/markdownLines";
+import { slashExtension, type SlashPick } from "@/lib/editor/slash";
 import { suggestionsExtension } from "@/lib/editor/suggestions";
 import { editorStyling } from "@/lib/editor/theme";
 
@@ -20,14 +21,15 @@ type Props = {
   onReady: (view: EditorView) => void;
   onUpdate: (update: ViewUpdate) => void;
   onAsk: () => boolean;
+  onSlashPick: SlashPick;
 };
 
 /** Mounts CodeMirror once. All later interaction goes through the view. */
-export function Editor({ getInitialDoc, getInitialHistory, onReady, onUpdate, onAsk }: Props) {
+export function Editor({ getInitialDoc, getInitialHistory, onReady, onUpdate, onAsk, onSlashPick }: Props) {
   const host = useRef<HTMLDivElement>(null);
   // keep callbacks fresh without rebuilding the editor
-  const cb = useRef({ onUpdate, onAsk });
-  cb.current = { onUpdate, onAsk };
+  const cb = useRef({ onUpdate, onAsk, onSlashPick });
+  cb.current = { onUpdate, onAsk, onSlashPick };
 
   useEffect(() => {
     const doc = getInitialDoc();
@@ -47,6 +49,8 @@ export function Editor({ getInitialDoc, getInitialHistory, onReady, onUpdate, on
           livePreview,
           editorStyling,
           suggestionsExtension,
+          // before the suggestion keymap: while the menu is open, Esc closes it rather than rejecting
+          slashExtension(() => (view, item, range) => cb.current.onSlashPick(view, item, range)),
           suggestionKeymap(() => cb.current.onAsk()),
           // Tab indents (lists especially); Esc then Tab still leaves the editor for keyboard users
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),

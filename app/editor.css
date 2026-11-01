@@ -143,3 +143,9 @@
     background-color: var(--ins-bg);
   }
 }
+
+/* the "/query" the slash menu will remove when an item is picked */
+.cm-slash-query {
+  background: var(--selection);
+  border-radius: var(--r-1);
+}

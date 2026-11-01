@@ -720,3 +720,65 @@ kbd {
 .hist-item.is-reverted .hist-change {
   opacity: 0.6;
 }
+
+/* ---------- slash menu (DESIGN.md "Slash menu") ---------- */
+
+.slash {
+  position: absolute;
+  z-index: 35;
+  width: 260px;
+  padding: 4px;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-ui);
+  animation: pop-in var(--t-enter);
+}
+
+.slash__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 32px;
+  padding: 0 var(--s-2);
+  border-radius: var(--r-2);
+  color: var(--ink);
+  font-size: var(--ui-13);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.slash__item.is-active {
+  background: var(--sunk);
+}
+
+.slash__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  color: var(--ink-3);
+}
+.slash__mark {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+.slash__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slash__query {
+  color: var(--ink-2);
+}
+
+.slash__hint {
+  padding: 6px var(--s-2) 4px;
+  margin-top: 2px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 11px;
+}

@@ -66,6 +66,8 @@ export type SlashState = { from: number; query: string; index: number } | null;
 const openSlash = StateEffect.define<number>();
 export const closeSlash = StateEffect.define<null>();
 const moveSlash = StateEffect.define<number>();
+/** Highlight a specific item (mouse). */
+export const setSlashIndex = StateEffect.define<number>();
 
 const MAX_QUERY = 80;
 
@@ -79,6 +81,7 @@ export const slashField = StateField.define<SlashState>({
         next = { from: e.value, query: "", index: 0 };
         opened = true;
       } else if (e.is(closeSlash)) next = null;
+      else if (e.is(setSlashIndex) && next) next = { ...next, index: e.value };
       else if (e.is(moveSlash) && next) {
         const n = slashItems(next.query).length;
         next = { ...next, index: (((next.index + e.value) % n) + n) % n };
