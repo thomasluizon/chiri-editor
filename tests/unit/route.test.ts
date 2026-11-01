@@ -64,6 +64,7 @@ describe("SPEC 7.3: API route (OpenRouter mocked)", () => {
     expect(body.usage).toMatchObject({ inputTokens: 812, outputTokens: 64, costUsd: 0.00011 });
     expect(body.usage.latencyMs).toBeTypeOf("number");
     expect(body.usage.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(body.model).toBe("test-vendor/review-model"); // a Review doc call; shown in AI history
   });
 
   it("17. zero edits returns 200 with an empty suggestions list and the note", async () => {

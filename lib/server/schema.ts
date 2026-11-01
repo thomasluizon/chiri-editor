@@ -112,4 +112,6 @@ export type SuggestResponse = {
   suggestions: PlacedSuggestion[];
   dropped: { quote: string; why: DropReason }[];
   usage: { inputTokens: number; outputTokens: number; costUsd: number | null; latencyMs: number };
+  /** The OpenRouter model that answered (shown in AI history). */
+  model: string;
 };

@@ -42,6 +42,7 @@ export const response = (suggestions: Placed[], note = "Two small fixes.", dropp
   suggestions,
   dropped,
   usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 1 },
+  model: "anthropic/claude-sonnet-5.5",
 });
 
 /** Intercept /api/suggest. Returns the request bodies seen so far. */

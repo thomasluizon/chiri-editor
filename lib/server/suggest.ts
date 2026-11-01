@@ -79,6 +79,7 @@ export async function suggest(req: SuggestRequest, opts: SuggestOptions): Promis
       suggestions: placed.map((p) => ({ id: newId(), ...p, reason: clipReason(p.reason) })),
       dropped,
       usage: usageOf(completion.usage, started),
+      model: opts.model,
     };
   }
 
@@ -115,7 +116,7 @@ export async function suggest(req: SuggestRequest, opts: SuggestOptions): Promis
       reason: clipReason(out.reason),
     });
   }
-  return { note: out.note.trim(), suggestions, dropped, usage: usageOf(completion.usage, started) };
+  return { note: out.note.trim(), suggestions, dropped, usage: usageOf(completion.usage, started), model: opts.model };
 }
 
 /* ---------- OpenRouter ---------- */
