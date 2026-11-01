@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import type { SuggestRequest, SuggestResponse } from "@/lib/types";
-import { cards, DOC, getDoc, open, place, response, select } from "./helpers";
+import { cards, DOC, FOX, getDoc, open, place, response, select } from "./helpers";
 
 /**
  * Regression tests for the independent review's findings (request
@@ -31,6 +31,67 @@ async function askOn(page: Page, doc: string, text: string) {
   await page.keyboard.press("ControlOrMeta+k");
   await expect(dialog(page)).toBeVisible();
 }
+
+test("R1. ⌘K on another paragraph while one is thinking: the old answer can't take over the new popover", async ({ page }) => {
+  const doc = "First paragraph here.\n\nSecond paragraph here.";
+  await open(page, doc);
+  const api = await scriptApi(page, [() => ({ json: response([], "Old answer: reads well."), delayMs: 1500 })]);
+
+  await askOn(page, doc, "First");
+  await page.getByRole("button", { name: "Tighten" }).click();
+  await expect(page.getByText("Thinking…")).toBeVisible();
+
+  await askOn(page, doc, "Second"); // the user moves on before the first answer arrives
+  await page.getByPlaceholder("Ask AI to edit this paragraph…").fill("make it punchier");
+  await page.waitForTimeout(2000); // past the old answer's arrival
+
+  await expect(dialog(page)).toBeVisible();
+  await expect(page.getByPlaceholder("Ask AI to edit this paragraph…")).toHaveValue("make it punchier");
+  await expect(dialog(page)).not.toContainText("Old answer");
+  expect(api.failed.length).toBe(1); // the first request was cancelled, not left running
+});
+
+test("R2. 'Try again' sends the target where it is now, after typing during the failed request", async ({ page }) => {
+  await open(page, FOX);
+  const api = await scriptApi(page, [
+    () => ({ status: 502, json: { error: "Model provider error: overloaded" }, delayMs: 1000 }),
+    () => ({ json: response([], "Reads well.") }),
+  ]);
+
+  await askOn(page, FOX, "quick");
+  await page.getByRole("button", { name: "Tighten" }).click();
+  await expect(page.getByText("Thinking…")).toBeVisible();
+  await select(page, 0);
+  await page.keyboard.type("Hello world. ");
+
+  await expect(dialog(page)).toContainText("overloaded");
+  await dialog(page).getByRole("button", { name: "Try again" }).click();
+  await expect.poll(() => api.bodies.length).toBe(2);
+
+  const now = await getDoc(page);
+  const para = { from: now.indexOf("The quick"), to: now.length };
+  expect(api.bodies[1]).toMatchObject({ mode: "suggest", instruction: "Tighten", scope: para });
+  expect(now.slice(para.from, para.to)).toBe("The quick brown fox.");
+});
+
+test("R-nit. a target paragraph deleted during the request is never sent as an empty range", async ({ page }) => {
+  await open(page, FOX);
+  const api = await scriptApi(page, [
+    () => ({ status: 502, json: { error: "Model provider error: overloaded" }, delayMs: 1000 }),
+    () => ({ json: response([], "Reads well.") }),
+  ]);
+
+  await askOn(page, FOX, "quick");
+  await page.getByRole("button", { name: "Tighten" }).click();
+  await expect(page.getByText("Thinking…")).toBeVisible();
+  await select(page, FOX.indexOf("The quick"), FOX.length); // select the whole paragraph…
+  await page.keyboard.press("Backspace"); // …and delete it
+
+  await expect(dialog(page)).toContainText("overloaded");
+  await dialog(page).getByRole("button", { name: "Try again" }).click();
+  await expect(dialog(page)).toContainText(/paragraph is gone/i);
+  expect(api.bodies.length).toBe(1);
+});
 
 test("R5. a refinement that collides with another suggestion says so, instead of 'the text changed'", async ({ page }) => {
   await open(page, DOC);

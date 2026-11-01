@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isAbort, postSuggest } from "@/lib/client/api";
+import { mapRange } from "@/lib/editor/mapping";
 import { paragraphAt } from "@/lib/editor/paragraph";
 import { placeSuggestions } from "@/lib/editor/place";
 import {
@@ -193,9 +194,15 @@ export function Workspace() {
 
   /* ----- ⌘K ----- */
 
+  /** The ⌘K request in flight, if any. Answers from any other request are ignored. */
+  const askReqId = useRef<string | undefined>(undefined);
+
   const openAsk = useCallback(() => {
     const view = viewRef.current;
     if (!view) return false;
+    // opening ⌘K somewhere else replaces the popover, so the old request goes too
+    cancelRequest(askReqId.current);
+    askReqId.current = undefined;
     const sel = view.state.selection.main;
     const scope = sel.empty ? "paragraph" : "selection";
     const target = sel.empty ? paragraphAt(view.state, sel.head) : { from: sel.from, to: sel.to };
@@ -208,7 +215,8 @@ export function Workspace() {
   }, []);
 
   const closeAsk = useCallback(() => {
-    cancelRequest(askRequestRef.current);
+    cancelRequest(askReqId.current);
+    askReqId.current = undefined;
     viewRef.current?.dispatch({ effects: setAskTarget.of(null) });
     setAsk(null);
     viewRef.current?.focus();
@@ -217,23 +225,40 @@ export function Workspace() {
   async function submitAsk(instruction: string) {
     const view = viewRef.current;
     if (!view || !ask) return;
-    // the target follows edits made while the popover was open
+    // The editor tracks the target through edits whenever no request is running
+    // (askTarget); while one runs, the request's own change log does (below).
     const target = getSuggestions(view.state).askTarget ?? ask.target;
+    if (target.from >= target.to) {
+      setAsk({ ...ask, target, phase: "error", message: "The paragraph is gone, so there's nothing to edit." });
+      return;
+    }
     view.dispatch({ effects: setAskTarget.of(null) });
     const req = startRequest((doc) => ({ mode: "suggest", doc, instruction, scope: target }), target);
+    askReqId.current = req.id;
     setAsk({ ...ask, target, phase: "thinking", requestId: req.id });
+
+    // where the target is now, after the edits made while the request ran
+    const settle = (next: Partial<Ask>) => {
+      const moved = mapRange(target, req.changes());
+      askReqId.current = undefined;
+      view.dispatch({ effects: setAskTarget.of(moved) });
+      setAsk((a) => a && { ...a, ...next, target: moved, requestId: undefined });
+    };
+
     try {
       const res = await req.done;
+      if (askReqId.current !== req.id) return; // superseded: a newer ⌘K owns the popover
       const placed = placeSuggestions(view, req.changes(), res);
       if (placed.added.length) {
+        askReqId.current = undefined;
         setAsk(null);
         setStatus({ text: resultText(res, placed.stale + placed.conflicted), tone: "note" });
       } else {
-        setAsk((a) => a && { ...a, phase: "done", message: resultText(res, placed.stale + placed.conflicted), requestId: undefined });
+        settle({ phase: "done", message: resultText(res, placed.stale + placed.conflicted) });
       }
     } catch (e) {
-      if (isAbort(e)) return;
-      setAsk((a) => a && { ...a, phase: "error", message: errorText(e), requestId: undefined });
+      if (isAbort(e) || askReqId.current !== req.id) return;
+      settle({ phase: "error", message: errorText(e) });
     }
   }
 
