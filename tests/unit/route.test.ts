@@ -110,6 +110,21 @@ describe("SPEC 7.3: API route (OpenRouter mocked)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("R-nit. oversized refine fields are rejected with 400 before any model call", async () => {
+    const target = { from: 12, to: 19, quote: DOC.slice(12, 19), replacement: "receive", history: [] as { instruction: string; replacement: string }[] };
+    const huge = "x".repeat(40_001);
+    const cases = [
+      { ...target, replacement: huge },
+      { ...target, history: [{ instruction: "shorter", replacement: huge }] },
+      { ...target, history: [{ instruction: "y".repeat(501), replacement: "ok" }] },
+    ];
+    for (const t of cases) {
+      const res = await call({ mode: "refine", doc: DOC, instruction: "shorter", target: t });
+      expect(res.status).toBe(400);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("20. the outgoing request uses the right model per request, max_tokens 1200 and a strict json_schema", async () => {
     fetchMock.mockImplementation(async () => completion(JSON.stringify({ note: "n", edits: [] })));
     const sentModel = (i: number) => JSON.parse((fetchMock.mock.calls[i] as [string, RequestInit])[1].body as string).model;

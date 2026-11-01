@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** Request and response contract for POST /api/suggest (SPEC §3). */
 
-import { MAX_EDITS, MAX_INSTRUCTION_CHARS, MAX_REASON_CHARS } from "@/lib/limits";
+import { MAX_DOC_CHARS, MAX_EDITS, MAX_INSTRUCTION_CHARS, MAX_REASON_CHARS } from "@/lib/limits";
 
 const range = z.object({ from: z.number().int().min(0), to: z.number().int().min(0) });
 
@@ -20,9 +20,16 @@ export const suggestRequestSchema = z.discriminatedUnion("mode", [
     target: z.object({
       from: z.number().int().min(0),
       to: z.number().int().min(0),
-      quote: z.string(),
-      replacement: z.string(),
-      history: z.array(z.object({ instruction: z.string(), replacement: z.string() })).max(4),
+      quote: z.string().max(MAX_DOC_CHARS),
+      replacement: z.string().max(MAX_DOC_CHARS),
+      history: z
+        .array(
+          z.object({
+            instruction: z.string().max(MAX_INSTRUCTION_CHARS),
+            replacement: z.string().max(MAX_DOC_CHARS),
+          }),
+        )
+        .max(4),
     }),
   }),
 ]);
