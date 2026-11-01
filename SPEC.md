@@ -74,7 +74,9 @@ The ⌘K preset chips (*Tighten*, *Fix grammar*, *More formal*, *More casual*, *
 }
 ```
 
-In `refine` mode the model returns `{ note, replacement, reason }`, with no `quote`: the range is already known from `target`, so there is nothing to locate or mismatch. The server trims the shared start and end the same way as in suggest mode.
+In `refine` mode the model returns `{ note, replacement, reason }`, with no `quote`: the range is already known from `target`, so there is nothing to locate or mismatch.
+
+Before asking, the server widens `target` to the whole sentence(s) it sits in and sends that sentence with the current suggestion applied, with the span marked inside its paragraph. It then trims the shared start and end the same way as in suggest mode. Placed suggestions are trimmed, so they can start mid-phrase ("In [the first week…]"). In the first live run, asking the model to rewrite such a fragment gave "In In the first week", and marking the span alone still gave "In during…". Whole sentences fixed it in 3 of 3 retries.
 
 ### Response: `200`
 

@@ -35,6 +35,8 @@ export function Editor({ getInitialDoc, onReady, onUpdate, onAsk }: Props) {
           history(),
           drawSelection(),
           EditorView.lineWrapping,
+          // keep the cursor clear of the sticky top bar and the mobile review bar when scrolling to it
+          EditorView.scrollMargins.of(() => ({ top: 72, bottom: 72 })),
           markdown({ base: markdownLanguage }), // GFM: strikethrough, tables, task lists
           markdownLines,
           livePreview,

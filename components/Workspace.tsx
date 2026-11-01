@@ -323,6 +323,17 @@ export function Workspace() {
     return () => ro.disconnect();
   }, [narrow, activeId]);
 
+  // Once every suggestion has been accepted or rejected, the review's note is stale.
+  const itemCount = sg?.items.length ?? 0;
+  const hadItems = useRef(false);
+  useEffect(() => {
+    if (itemCount > 0) hadItems.current = true;
+    else if (hadItems.current) {
+      hadItems.current = false;
+      setStatus((s) => (s?.tone === "note" ? null : s));
+    }
+  }, [itemCount]);
+
   /* ----- render ----- */
 
   const items = sg?.items ?? [];

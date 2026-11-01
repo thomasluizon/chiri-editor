@@ -82,8 +82,20 @@ export async function suggest(req: SuggestRequest, opts: SuggestOptions): Promis
     };
   }
 
-  // refine: the range is known, so the model only supplies new text for it
-  const { target } = req;
+  // refine: the range is known, so the model only supplies new text for it.
+  // Placed suggestions are trimmed and can start mid-phrase ("In [the first week…]"),
+  // and models rewrite fragments badly ("In In the first week"). So the model gets
+  // the whole sentence(s) with the current suggestion applied, and the result is
+  // trimmed back down to a small diff.
+  const sentence = sentencesAround(req.doc, req.target);
+  const target = {
+    from: sentence.from,
+    to: sentence.to,
+    quote: req.doc.slice(sentence.from, sentence.to),
+    replacement:
+      req.doc.slice(sentence.from, req.target.from) + req.target.replacement + req.doc.slice(req.target.to, sentence.to),
+    history: req.target.history,
+  };
   const context = paragraphAround(req.doc, target);
   const completion = await callModel(opts, refineMessages(req.doc, req.instruction, target, context), "refinement", refineJsonSchema);
   const out = parseOutput(refineOutputSchema, completion.content);
@@ -91,7 +103,7 @@ export async function suggest(req: SuggestRequest, opts: SuggestOptions): Promis
   const suggestions: PlacedSuggestion[] = [];
   const dropped: SuggestResponse["dropped"] = [];
   if (out.replacement === target.quote) {
-    dropped.push({ quote: target.quote, why: "noop" });
+    dropped.push({ quote: req.target.quote, why: "noop" });
   } else {
     const { prefix, suffix } = sharedEnds(target.quote, out.replacement);
     suggestions.push({
@@ -199,6 +211,23 @@ export function clipReason(reason: string): string {
   if (r.length <= MAX_REASON_CHARS) return r;
   const cut = r.slice(0, MAX_REASON_CHARS - 1);
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 60)).replace(/[\s,;:.-]+$/, "")}…`;
+}
+
+/**
+ * Widen a range to the whole sentence(s) it touches, within its line: back to
+ * the start of the line or just after ". ", "! ", "? "; forward to the end of
+ * the line or just after the next ".", "!" or "?" that ends a sentence.
+ */
+export function sentencesAround(doc: string, r: Range): Range {
+  const isEnd = (i: number) => /[.!?]/.test(doc[i] ?? "") && (i + 1 >= doc.length || /\s/.test(doc[i + 1]));
+  let from = r.from;
+  while (from > 0 && doc[from - 1] !== "\n" && !(doc[from - 1] === " " && isEnd(from - 2))) from--;
+  let to = r.to;
+  if (!(to > from && isEnd(to - 1))) {
+    while (to < doc.length && doc[to] !== "\n" && !isEnd(to)) to++;
+    if (to < doc.length && isEnd(to)) to++;
+  }
+  return { from, to };
 }
 
 /** The blank-line-delimited block(s) around a range, for refine context. */

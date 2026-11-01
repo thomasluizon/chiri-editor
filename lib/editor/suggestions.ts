@@ -230,7 +230,10 @@ function buildDecorations(state: EditorState): DecorationSet {
     ranges.push(Decoration.mark({ class: "cm-ask-target" }).range(v.askTarget.from, v.askTarget.to));
   }
   for (const { range } of v.thinking) {
-    if (range.from < range.to) ranges.push(Decoration.mark({ class: "cm-thinking" }).range(range.from, range.to));
+    if (range.from >= range.to) continue;
+    // a whole-document review gets the sweep only; a tint over everything reads as "all selected"
+    const whole = range.from === 0 && range.to === state.doc.length;
+    ranges.push(Decoration.mark({ class: whole ? "cm-thinking is-doc" : "cm-thinking" }).range(range.from, range.to));
   }
 
   return Decoration.set(ranges, true);

@@ -122,6 +122,10 @@
   animation: shimmer-sweep var(--shimmer-dur) linear infinite;
 }
 
+.cm-thinking.is-doc {
+  background-color: transparent;
+}
+
 @keyframes shimmer-sweep {
   /* band centre travels from the left edge of the viewport to the right edge */
   from {

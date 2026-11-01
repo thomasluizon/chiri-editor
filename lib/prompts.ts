@@ -68,7 +68,7 @@ export function suggestMessages(doc: string, instruction: string | undefined, sc
 
 const REFINE_SYSTEM = `You are a co-author refining one suggested edit in a Markdown document. The writer saw your suggestion and asked for a change to it.
 
-- Return a new "replacement" for the original text. It replaces exactly that original span, so it must read correctly in place.
+- Return a new "replacement" for the text inside <original>…</original>. It replaces exactly that span, and the words just before and after it stay in the document, so the sentence must read correctly with them. Never repeat a word that sits right outside the span (if "In" comes just before the span, don't start the replacement with "In").
 - Follow the writer's request. Otherwise keep what was good about the previous suggestion.
 - Keep Markdown marks the original had unless the request is about them.
 - "reason": one plain sentence, under ${MAX_REASON_CHARS} characters, about the new version. Don't start with "I".
@@ -90,11 +90,9 @@ export function refineMessages(
     { role: "system", content: REFINE_SYSTEM },
     {
       role: "user",
-      content: `Paragraph for context:\n<context>\n${doc.slice(context.from, context.to)}\n</context>
+      content: `The paragraph, with the span being edited marked:\n<context>\n${doc.slice(context.from, target.from)}<original>${target.quote}</original>${doc.slice(target.to, context.to)}\n</context>
 
-Original text:\n<original>\n${target.quote}\n</original>
-
-Your current suggestion:\n<suggestion>\n${target.replacement}\n</suggestion>${history}
+Your current suggestion for that span:\n<suggestion>\n${target.replacement}\n</suggestion>${history}
 
 Writer's request: ${expandInstruction(instruction)}`,
     },

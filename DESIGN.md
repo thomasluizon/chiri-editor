@@ -165,6 +165,7 @@ States:
 
 ### Thinking shimmer (on the text)
 - The target keeps the neutral `--selection` tint from the ⌘K state, so it stays marked in every frame. A soft `--ins-bg-strong` band sweeps across it from left to right with `--shimmer`. The text colour doesn't change and the text stays editable.
+- A whole-document review gets the sweep only, without the tint. A tint over every line reads as "everything is selected".
 - The band uses `background-attachment: fixed` (viewport coordinates). CodeMirror splits a marked range into several spans, one per syntax highlight; without the fixed attachment, each span would run its own gradient and the band would break up.
 - No spinners anywhere in the app.
 

@@ -102,3 +102,48 @@ describe("SPEC 7.1: placing quotes (locateEdits)", () => {
     await expect(run).rejects.toMatchObject({ status: 502 });
   });
 });
+
+describe("refine widens a fragment to whole sentences", () => {
+  const doc = "# T\n\nNew accounts land on a checklist. In the first week, 64% finished setup, up from 41% before the change. Teams invited more.\n\n- An item.";
+
+  it("a mid-phrase span grows to its sentence", async () => {
+    const { sentencesAround } = await import("@/lib/server/suggest");
+    const from = doc.indexOf("the first week");
+    const r = sentencesAround(doc, { from, to: doc.indexOf(" before") });
+    expect(doc.slice(r.from, r.to)).toBe("In the first week, 64% finished setup, up from 41% before the change.");
+  });
+
+  it("a span across two sentences covers both; a list item stays within its line", async () => {
+    const { sentencesAround } = await import("@/lib/server/suggest");
+    const r = sentencesAround(doc, { from: doc.indexOf("checklist"), to: doc.indexOf("first") });
+    expect(doc.slice(r.from, r.to)).toBe("New accounts land on a checklist. In the first week, 64% finished setup, up from 41% before the change.");
+    const li = sentencesAround(doc, { from: doc.indexOf("item"), to: doc.indexOf("item") });
+    expect(doc.slice(li.from, li.to)).toBe("- An item.");
+  });
+
+  it("the model sees the whole sentence with the current suggestion applied, and the result is trimmed back", async () => {
+    const from = doc.indexOf("the first week");
+    const to = doc.indexOf(" before");
+    let prompt = "";
+    const fakeFetch = async (_url: unknown, init?: RequestInit) => {
+      prompt = JSON.parse(String(init?.body)).messages[1].content;
+      const replacement = "During the first week, 64% completed setup, up from 41% before the change.";
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ note: "n", replacement, reason: "r" }) } }] }));
+    };
+    const res = await suggest(
+      {
+        mode: "refine",
+        doc,
+        instruction: "more formal",
+        target: { from, to, quote: doc.slice(from, to), replacement: "its first week, 64% finished setup, up from 41%", history: [] },
+      },
+      { apiKey: "k", model: "m", fetch: fakeFetch as typeof fetch },
+    );
+    expect(prompt).toContain("<original>In the first week, 64% finished setup, up from 41% before the change.</original>");
+    expect(prompt).toContain("In its first week, 64% finished setup, up from 41% before the change.");
+    const s = res.suggestions[0];
+    const applied = doc.slice(0, s.from) + s.replacement + doc.slice(s.to);
+    expect(applied).toContain("checklist. During the first week, 64% completed setup, up from 41% before the change. Teams");
+    expect(s).toMatchObject({ quote: "In the first week, 64% finished", replacement: "During the first week, 64% completed" });
+  });
+});

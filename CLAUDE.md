@@ -9,11 +9,12 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 - `npm test`: Vitest unit and API route tests (`tests/unit/`, OpenRouter mocked). Test names carry their SPEC §7 numbers.
 - `npm run screenshots -- <base url>`: design screenshots (1440/390 × light/dark × states) into `design/screenshots/`, which is git-ignored
 
+- `npm run test:e2e`: Playwright, SPEC 7.4 (21–32). It starts its own dev server on port 3210 with an invalid key, and `/api/suggest` is intercepted in the browser.
+- `node scripts/live-walkthrough.mjs <url> [--mock]`: drives the real UI through review, accept, reject, refine ×2 and typing during ⌘K, with screenshots in `design/screenshots/live/`. **Without `--mock` it calls the real models (about 1¢), so ask first.**
+- `npm run credit`: the key's remaining credit (GET /api/v1/key, not billed).
 - `npm run eval -- --dry-run [--models …]`: the eval against a fake model. Free, offline. Run this before any live eval.
 - `npm run eval -- [--models haiku,luna,sonnet] [--case name] [--max-usd 0.15]`: **real API calls, costs money.** Ask before running it. Every call's worst case is checked against `--max-usd` before it's sent.
 
-Planned, not wired yet:
-- `npm run test:e2e`: Playwright (`/api/suggest` is intercepted, no API calls)
 
 ## Things that aren't obvious from the code
 
