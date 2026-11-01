@@ -9,7 +9,12 @@ export type Suggestion = {
   reason: string;
   /** Earlier refine rounds that led to this replacement (sent back on the next refine). */
   history?: { instruction: string; replacement: string }[];
+  /** Which model suggested it and from where, for AI history (SPEC §10). */
+  model?: string;
+  source?: SuggestionSource;
 };
+
+export type SuggestionSource = "review" | "ask" | "slash" | "refine";
 
 export type SuggestionKind = "insert" | "delete" | "replace";
 

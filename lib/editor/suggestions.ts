@@ -1,6 +1,7 @@
-import { EditorState, StateEffect, StateField, type Range as DecoRange } from "@codemirror/state";
+import { ChangeSet, EditorState, StateEffect, StateField, type Range as DecoRange } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view";
 import { kindOf, type Range, type Suggestion } from "@/lib/types";
+import { addHistory, type HistoryEntry } from "./history";
 import { mapRange, mapSuggestion } from "./mapping";
 import { paragraphAt } from "./paragraph";
 
@@ -86,39 +87,68 @@ function neighbourOf(items: Suggestion[], id: string): string | null {
   return items[i + 1]?.id ?? items[i - 1]?.id ?? null;
 }
 
+/* AI history (SPEC §10): every accept and reject is recorded in the same transaction. */
+
+function historyEntry(s: Suggestion, status: "accepted" | "rejected", range?: { from: number; to: number }): HistoryEntry {
+  return {
+    id: crypto.randomUUID(),
+    at: Date.now(),
+    status,
+    source: s.source,
+    model: s.model,
+    reason: s.reason,
+    before: s.quote,
+    after: s.replacement,
+    ...(range ? { range } : {}),
+  };
+}
+
+/** Accept suggestions as one change; history ranges are where each replacement lands in the new doc. */
+function accept(view: EditorView, list: Suggestion[], effects: StateEffect<unknown>[], cursor?: number) {
+  const changes = ChangeSet.of(
+    list.map((s) => ({ from: s.from, to: s.to, insert: s.replacement })),
+    view.state.doc.length,
+  );
+  const recorded = list.map((s) =>
+    historyEntry(s, "accepted", { from: changes.mapPos(s.from, -1), to: changes.mapPos(s.to, 1) }),
+  );
+  view.dispatch({
+    changes,
+    effects: [...effects, addHistory.of(recorded)],
+    ...(cursor !== undefined ? { selection: { anchor: cursor } } : {}),
+    userEvent: "input.accept",
+  });
+}
+
 export function acceptSuggestion(view: EditorView, id: string): boolean {
   const { items } = getSuggestions(view.state);
   const s = items.find((x) => x.id === id);
   if (!s) return false;
-  const end = s.from + s.replacement.length;
-  view.dispatch({
-    changes: { from: s.from, to: s.to, insert: s.replacement },
-    effects: [removeSuggestion.of(id), setActive.of(neighbourOf(items, id))],
-    selection: { anchor: end },
-    userEvent: "input.accept",
-  });
+  accept(view, [s], [removeSuggestion.of(id), setActive.of(neighbourOf(items, id))], s.from + s.replacement.length);
   return true;
 }
 
 export function rejectSuggestion(view: EditorView, id: string): boolean {
   const { items } = getSuggestions(view.state);
-  if (!items.some((x) => x.id === id)) return false;
-  view.dispatch({ effects: [removeSuggestion.of(id), setActive.of(neighbourOf(items, id))] });
+  const s = items.find((x) => x.id === id);
+  if (!s) return false;
+  view.dispatch({
+    effects: [removeSuggestion.of(id), setActive.of(neighbourOf(items, id)), addHistory.of([historyEntry(s, "rejected")])],
+  });
   return true;
 }
 
 export function acceptAll(view: EditorView) {
   const { items } = getSuggestions(view.state);
   if (!items.length) return;
-  view.dispatch({
-    changes: items.map((s) => ({ from: s.from, to: s.to, insert: s.replacement })),
-    effects: setSuggestions.of([]),
-    userEvent: "input.accept",
-  });
+  accept(view, items, [setSuggestions.of([])]);
 }
 
 export function rejectAll(view: EditorView) {
-  view.dispatch({ effects: setSuggestions.of([]) });
+  const { items } = getSuggestions(view.state);
+  view.dispatch({
+    effects: [setSuggestions.of([]), ...(items.length ? [addHistory.of(items.map((s) => historyEntry(s, "rejected")))] : [])],
+  });
 }
 
 /** Make a suggestion active and scroll it into view. */

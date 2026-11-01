@@ -1,7 +1,7 @@
 import type { ChangeSet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { conflicts } from "@/lib/ranges";
-import type { Suggestion, SuggestResponse } from "@/lib/types";
+import type { Suggestion, SuggestionSource, SuggestResponse } from "@/lib/types";
 import { mapSuggestion } from "./mapping";
 import { getSuggestions, setSuggestions } from "./suggestions";
 
@@ -26,6 +26,7 @@ export function placeSuggestions(
   changes: ChangeSet,
   res: SuggestResponse,
   replace?: { id: string; instruction: string },
+  source: SuggestionSource = replace ? "refine" : "review",
 ): Placement {
   const current = getSuggestions(view.state).items;
   const original = replace && current.find((s) => s.id === replace.id);
@@ -37,7 +38,7 @@ export function placeSuggestions(
   let conflicted = 0;
 
   for (const s of res.suggestions) {
-    const mapped = mapSuggestion({ ...s }, changes, view.state.doc);
+    const mapped = mapSuggestion({ ...s, model: res.model, source }, changes, view.state.doc);
     if (!mapped) {
       stale++;
       continue;
