@@ -27,6 +27,7 @@ There are two ways to ask:
 | D11 | **Accept is a normal CM6 transaction** | Accepting can be undone with ⌘Z using the editor's built-in history, so we don't need a custom undo system. |
 | D12 | **All prompts live in one file, `lib/prompts.ts`** | Most of the quality comes from the prompts. Keeping the system prompt, the review, ⌘K and refine templates, and the preset wording in one place makes them easy to read, compare and tune with the eval script. No other file contains prompt text. |
 | D13 | **Our shortcuts never take keys the editor or the OS already uses** | ⌘⌫ (delete to line start on macOS), ⌘↵ (CM6 "insert blank line") and Tab/Shift-Tab (list indenting) are left alone. See §4 for what we use instead. |
+| D14 | **Live preview: Markdown marks are hidden except on the lines being edited** | The document still reads like a document (DESIGN.md), and the stored text stays raw Markdown. If a suggestion touches a mark, that line shows its marks, so a diff never hides a syntax change. |
 
 ### Placement rules (beyond plain exact matching)
 

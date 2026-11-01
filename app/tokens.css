@@ -1,0 +1,140 @@
+/* Design tokens. Mirrors DESIGN.md: change both together. */
+
+:root {
+  /* type */
+  --font-doc: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-ui: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --doc-size: 19px;
+  --doc-leading: 1.7;
+  --measure: calc(19px * 34); /* ≈ 70 characters of body text */
+  --h1-size: 36px;
+  --h2-size: 27px;
+  --h3-size: 22px;
+
+  --ui-12: 12px;
+  --ui-13: 13px;
+  --ui-14: 14px;
+
+  /* spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  --bar-h: 48px;
+  --margin-w: 300px;
+
+  /* radius */
+  --r-1: 3px;
+  --r-2: 6px;
+  --r-3: 8px;
+  --r-4: 10px;
+
+  /* motion */
+  --t-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
+  --t-move: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-enter: 140ms ease-out;
+  --shimmer-dur: 1.8s;
+
+  /* colour: light */
+  color-scheme: light;
+  --paper: #fbf9f4;
+  --raised: #fffffe;
+  --sunk: #f2efe7;
+  --ink: #1c1b19;
+  --ink-2: #5f5a51;
+  --ink-3: #948e83;
+  --line: #e8e3d9;
+  --line-strong: #d5cfc3;
+  --accent: #1f6e58;
+  --accent-hover: #185b48;
+  --on-accent: #ffffff;
+  --ins-ink: #145a45;
+  --ins-bg: rgba(31, 110, 88, 0.11);
+  --ins-bg-strong: rgba(31, 110, 88, 0.18);
+  --del-ink: #9c3a2c;
+  --del-bg: rgba(196, 64, 46, 0.08);
+  --del-bg-strong: rgba(196, 64, 46, 0.14);
+  --del-line: #c4402e;
+  --selection: rgba(28, 27, 25, 0.09);
+  --shadow-card-active: 0 1px 2px rgb(28 27 25 / 0.05), 0 4px 14px rgb(28 27 25 / 0.06);
+  --shadow-pop: 0 2px 4px rgb(28 27 25 / 0.05), 0 10px 30px rgb(28 27 25 / 0.1);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --doc-size: 17px;
+    --doc-leading: 1.65;
+    --measure: 100%;
+    --h1-size: 30px;
+    --h2-size: 23px;
+    --h3-size: 19px;
+  }
+}
+
+@media (max-width: 1080px) {
+  :root {
+    --margin-w: 260px;
+  }
+}
+
+/* colour: dark. Applied when the system is dark and the user hasn't forced light,
+   or when the user forces dark. Both blocks must stay identical. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #171614;
+    --raised: #201f1c;
+    --sunk: #262420;
+    --ink: #ece8e1;
+    --ink-2: #a9a398;
+    --ink-3: #736d63;
+    --line: #2f2d29;
+    --line-strong: #423f39;
+    --accent: #6cc4a4;
+    --accent-hover: #88d3b7;
+    --on-accent: #0d1f18;
+    --ins-ink: #a2e2c9;
+    --ins-bg: rgba(108, 196, 164, 0.15);
+    --ins-bg-strong: rgba(108, 196, 164, 0.24);
+    --del-ink: #efa294;
+    --del-bg: rgba(239, 128, 108, 0.12);
+    --del-bg-strong: rgba(239, 128, 108, 0.2);
+    --del-line: #e8806f;
+    --selection: rgba(236, 232, 225, 0.12);
+    --shadow-card-active: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.35);
+    --shadow-pop: 0 2px 4px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #171614;
+  --raised: #201f1c;
+  --sunk: #262420;
+  --ink: #ece8e1;
+  --ink-2: #a9a398;
+  --ink-3: #736d63;
+  --line: #2f2d29;
+  --line-strong: #423f39;
+  --accent: #6cc4a4;
+  --accent-hover: #88d3b7;
+  --on-accent: #0d1f18;
+  --ins-ink: #a2e2c9;
+  --ins-bg: rgba(108, 196, 164, 0.15);
+  --ins-bg-strong: rgba(108, 196, 164, 0.24);
+  --del-ink: #efa294;
+  --del-bg: rgba(239, 128, 108, 0.12);
+  --del-bg-strong: rgba(239, 128, 108, 0.2);
+  --del-line: #e8806f;
+  --selection: rgba(236, 232, 225, 0.12);
+  --shadow-card-active: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 2px 4px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.45);
+}

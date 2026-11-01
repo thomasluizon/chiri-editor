@@ -1,0 +1,141 @@
+/* Document surface: line-level Markdown blocks and suggestion marks.
+   CodeMirror's base theme lives in lib/editor/theme.ts. */
+
+.doc-editor .cm-line.cm-h1 {
+  font-size: var(--h1-size);
+  line-height: 1.2;
+  padding-bottom: 0.1em;
+}
+.doc-editor .cm-line.cm-h2 {
+  font-size: var(--h2-size);
+  line-height: 1.3;
+  padding-top: 0.35em;
+}
+.doc-editor .cm-line.cm-h3 {
+  font-size: var(--h3-size);
+  line-height: 1.4;
+  padding-top: 0.25em;
+}
+.doc-editor .cm-line.cm-h4 {
+  font-size: 1em;
+  line-height: var(--doc-leading);
+}
+
+/* blank lines between blocks: a paragraph gap, not a full empty line */
+.doc-editor .cm-line.cm-gap {
+  line-height: 0.95;
+}
+
+.doc-editor .cm-line.cm-quote {
+  padding-left: 1em;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+/* hanging indent: wrapped lines align with the text after the bullet */
+.doc-editor .cm-line.cm-li {
+  padding-left: 1.1em;
+  text-indent: -1.1em;
+}
+
+/* drawn bullet for a hidden "- " (live preview); same width as the hanging indent */
+.cm-bullet {
+  display: inline-block;
+  width: 1.1em;
+  text-indent: 0;
+  color: var(--ink-3);
+}
+
+.doc-editor .cm-line.cm-codeblock {
+  padding: 0 0.9em;
+  background: var(--sunk);
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+}
+
+/* ---------- suggestions ---------- */
+
+.cm-sg-del,
+.cm-sg-ins {
+  border-radius: var(--r-1);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color var(--t-fast);
+}
+
+.cm-sg-del {
+  color: var(--del-ink);
+  background: var(--del-bg);
+  text-decoration: line-through;
+  text-decoration-color: var(--del-line);
+  text-decoration-thickness: 1.5px;
+}
+/* dimmed markdown marks inside a deletion still read as deleted */
+.cm-sg-del * {
+  color: inherit;
+}
+
+.cm-sg-ins {
+  color: var(--ins-ink);
+  background: var(--ins-bg);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.cm-sg-del.is-hover,
+.cm-sg-del.is-active {
+  background: var(--del-bg-strong);
+}
+.cm-sg-ins.is-hover,
+.cm-sg-ins.is-active {
+  background: var(--ins-bg-strong);
+}
+.cm-sg-ins.is-active {
+  text-decoration-thickness: 2px;
+}
+
+/* ---------- ask target + thinking ---------- */
+
+.cm-ask-target {
+  background: var(--selection);
+  border-radius: var(--r-1);
+}
+
+.cm-thinking {
+  /* Fixed attachment puts every span CodeMirror splits the range into on the
+     same (viewport) coordinates, so one band sweeps the whole paragraph. */
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 38%,
+    var(--ins-bg-strong) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  background-color: var(--selection); /* same mark as the ask target, so it reads as one continuous state */
+  background-attachment: fixed;
+  background-size: 200vw 100%;
+  background-repeat: no-repeat;
+  animation: shimmer-sweep var(--shimmer-dur) linear infinite;
+}
+
+@keyframes shimmer-sweep {
+  /* band centre travels from the left edge of the viewport to the right edge */
+  from {
+    background-position: -100vw 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-thinking {
+    animation: none;
+    background-image: none;
+    background-color: var(--ins-bg);
+  }
+}

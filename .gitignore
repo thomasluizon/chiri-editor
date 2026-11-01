@@ -16,3 +16,6 @@ test-results/
 *.log
 next-env.d.ts
 *.tsbuildinfo
+
+# design review output
+design/screenshots/

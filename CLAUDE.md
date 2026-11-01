@@ -4,10 +4,13 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 
 ## Commands
 
-> These are planned; no app code exists yet. Update this list when `package.json` lands.
+- `npm run dev`: app on http://localhost:3000 (currently the design mock; `?state=ask` / `?state=thinking` show those states)
+- `npm run typecheck`
+- `npm test`: Vitest unit tests (`tests/unit/`)
+- `npm run screenshots -- <base url>`: design screenshots (1440/390 × light/dark × states) into `design/screenshots/`, which is git-ignored
 
-- `npm run dev`: app on http://localhost:3000
-- `npm test`: Vitest unit and API tests (OpenRouter is mocked)
+Planned, not wired yet:
+- API route tests in `npm test` (OpenRouter mocked)
 - `npm run test:e2e`: Playwright (`/api/suggest` is intercepted, no API calls)
 - `npm run eval -- [--models haiku,luna,sonnet] [--case name]`: **real API calls, costs money.** Ask before running it.
 
@@ -19,5 +22,8 @@ Markdown editor with inline AI suggestions (Next.js + CodeMirror 6 + OpenRouter)
 - **Quote matching is exact.** A quote that matches zero times or more than once is dropped, never fuzzy-matched.
 - **All prompt text lives in `lib/prompts.ts`.** Don't put prompt strings anywhere else. After changing a prompt, re-run the eval (with permission) and compare.
 - **Max 5 edits per request**, and zero is a valid answer.
-- **Keymap:** don't bind Tab/Shift-Tab (list indenting), ⌘⌫ (macOS delete to line start) or ⌘↵ (CM6 insert blank line). Accept is ⌥↵ and reject is Esc, and both only fire when the cursor is inside a suggestion.
+- **Keymap:** Tab/Shift-Tab indent via CM6 `indentWithTab`. It isn't in `defaultKeymap`, so without it Tab would leave the editor. Never take Tab, ⌘⌫ (macOS delete to line start) or ⌘↵ (CM6 insert blank line) for our own commands. Accept is ⌥↵ and reject is Esc, and both only fire when the cursor is inside a suggestion.
 - **Session logs:** the raw `.jsonl` transcripts get committed (the brief requires it). Before committing them, grep for `sk-or-` and mask any match. Make no other edits to them.
+- **Next 16 writes `AGENTS.md`** on `next dev`, pointing to the bundled docs in `node_modules/next/dist/docs/`. Check those before using a Next API from memory.
+- **Design tokens** live in `DESIGN.md` and `app/tokens.css`. Change both together, and keep the two dark blocks in `tokens.css` identical.
+- **Live preview hides Markdown marks** but never edits the text. Positions are always raw-doc offsets. If you add a new syntax mark, update `findMarks` and its tests; a hidden mark must never sit inside a suggestion's range (`revealedLines` handles that).
