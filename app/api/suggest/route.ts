@@ -1,4 +1,5 @@
-import { DEFAULT_MODEL, parseSuggestRequest, suggest, SuggestError } from "@/lib/server/suggest";
+import { modelFor } from "@/lib/server/models";
+import { parseSuggestRequest, suggest, SuggestError } from "@/lib/server/suggest";
 
 /**
  * POST /api/suggest (SPEC §3). Thin wrapper: the key stays here on the
@@ -19,7 +20,7 @@ export async function POST(request: Request): Promise<Response> {
     const req = parseSuggestRequest(body);
     const result = await suggest(req, {
       apiKey,
-      model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
+      model: modelFor(req, process.env),
       signal: request.signal,
     });
     return Response.json(result);

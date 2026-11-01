@@ -20,7 +20,7 @@ There are two ways to ask:
 | D4 | **The server places each quote by exact match. Zero matches or more than one means the edit is dropped.** | No fuzzy matching or guessing. A suggestion in the wrong place is worse than a missing one. The prompt tells the model to quote enough surrounding text to be unique. Dropped edits are reported back (see §3) so the UI can say "1 suggestion couldn't be placed" instead of failing silently. |
 | D5 | **Positions follow the user's typing** | The client takes a snapshot of the doc when it sends a request and collects every change made after that. When the response arrives, each `from/to` is mapped through those changes. Then we **re-check that the mapped range still contains exactly `quote`**. If the user edited inside that range, the suggestion is stale and gets dropped. Suggestions already on screen are mapped on every transaction the same way, and are removed if an edit touches their range. |
 | D6 | **One Next.js app (App Router) with one route, `POST /api/suggest`** | The route holds the OpenRouter key. It's a thin wrapper around `suggest()` in `lib/server/`, so the eval script (§7) exercises exactly the same prompt and placement code as the app. No DB, no auth. |
-| D7 | **Model: decided by the comparison in §6**, configurable with `OPENROUTER_MODEL` | We're comparing Haiku 5.5, GPT-6 Luna and Sonnet 5.5 on the same docs. Speed counts as much as quality. |
+| D7 | **Two models, by job.** Review doc → Sonnet 5.5 (`OPENROUTER_MODEL_REVIEW`); ⌘K and refine → Haiku 5.5 (`OPENROUTER_MODEL_EDIT`) | Review doc needs judgment: Sonnet was the only model to fix the buried lede with small edits (§6). ⌘K and refine are small scoped edits where Haiku was as good and about 1 s faster. |
 | D8 | **Structured output**: OpenRouter `response_format: { type: "json_schema", strict: true }`, and the server validates again with zod | The model is asked for a strict JSON shape, and the server still re-checks it before use. If the output doesn't validate, we return a 502 with a clear message. There are no automatic retries, so a bad response never costs us twice. |
 | D9 | **No streaming** | The output is a short JSON list, so streaming partial JSON adds complexity without much visible benefit. The UI shows a "thinking…" state on the target range, with a Cancel button that uses `AbortController`. |
 | D10 | **The doc is autosaved to `localStorage`** | A reload doesn't lose the user's work, and we still don't need a backend. Pending suggestions are not saved. A sample doc loads on the first visit so there's something to review straight away. |
@@ -188,7 +188,7 @@ Unit and API tests use **Vitest**. End-to-end tests use **Playwright** and inter
 17. A response with zero edits returns 200 with an empty `suggestions` list and the `note`.
 18. Model output that isn't valid JSON or doesn't match the schema returns 502, and the body doesn't contain the API key.
 19. A doc over 40k chars returns 413. A bad scope returns 400.
-20. The outgoing request uses `OPENROUTER_MODEL`, `max_tokens: 1200` and a `json_schema` response format.
+20. The outgoing request goes to the right model (Review doc → `OPENROUTER_MODEL_REVIEW`; ⌘K and refine → `OPENROUTER_MODEL_EDIT`) and uses `max_tokens: 1200` and a strict `json_schema` response format.
 
 ### 7.4 End-to-end (Playwright, mocked route)
 21. **Review doc, then accept.** Clicking Review doc sends no `scope`. The suggestion renders as a strikethrough plus the inserted text, and the doc is unchanged until Accept. After Accept the doc equals the expected string.

@@ -13,8 +13,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { suggestMessages } from "@/lib/prompts";
-import { maxTokensFor, modelConfig } from "@/lib/server/models";
-import { DEFAULT_MODEL, suggest, SuggestError } from "@/lib/server/suggest";
+import { DEFAULT_EDIT_MODEL, DEFAULT_REVIEW_MODEL, maxTokensFor, modelConfig } from "@/lib/server/models";
+import { suggest, SuggestError } from "@/lib/server/suggest";
 import type { SuggestResponse } from "@/lib/types";
 import { cases, loadDoc, runChecks, type CheckResult, type EvalCase } from "./cases";
 
@@ -45,7 +45,11 @@ const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 if (!dryRun && !apiKey) fail("OPENROUTER_API_KEY is not set (.env or environment).");
 if (!(maxUsd > 0)) fail("--max-usd must be a positive number.");
 
-const modelNames = (args.models ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL).split(",").map((m) => m.trim());
+const defaultModels = [
+  process.env.OPENROUTER_MODEL_REVIEW || DEFAULT_REVIEW_MODEL,
+  process.env.OPENROUTER_MODEL_EDIT || DEFAULT_EDIT_MODEL,
+].filter((m, i, all) => all.indexOf(m) === i);
+const modelNames = (args.models?.split(",") ?? defaultModels).map((m) => m.trim());
 const models = modelNames.map((m) => ({ label: Object.keys(ALIASES).find((k) => ALIASES[k] === m) ?? m, id: ALIASES[m] ?? m }));
 for (const m of models) m.label = Object.keys(ALIASES).find((k) => ALIASES[k] === m.id) ?? m.id;
 const selected = args.case ? cases.filter((c) => c.name === args.case) : cases;

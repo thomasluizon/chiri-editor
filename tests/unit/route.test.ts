@@ -26,7 +26,8 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", KEY);
-  vi.stubEnv("OPENROUTER_MODEL", "test-vendor/test-model");
+  vi.stubEnv("OPENROUTER_MODEL_REVIEW", "test-vendor/review-model");
+  vi.stubEnv("OPENROUTER_MODEL_EDIT", "test-vendor/edit-model");
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -109,17 +110,31 @@ describe("SPEC 7.3: API route (OpenRouter mocked)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("20. the outgoing request uses OPENROUTER_MODEL, max_tokens 1200 and a strict json_schema", async () => {
-    fetchMock.mockResolvedValue(completion(JSON.stringify({ note: "n", edits: [] })));
-    await call({ mode: "suggest", doc: DOC, instruction: "Tighten" });
+  it("20. the outgoing request uses the right model per request, max_tokens 1200 and a strict json_schema", async () => {
+    fetchMock.mockImplementation(async () => completion(JSON.stringify({ note: "n", edits: [] })));
+    const sentModel = (i: number) => JSON.parse((fetchMock.mock.calls[i] as [string, RequestInit])[1].body as string).model;
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // ⌘K (scoped) and refine go to the edit model; Review doc (no scope) to the review model
+    await call({ mode: "suggest", doc: DOC, instruction: "Tighten", scope: { from: 9, to: DOC.length } });
+    await call({
+      mode: "refine",
+      doc: DOC,
+      instruction: "shorter",
+      target: { from: 12, to: 19, quote: DOC.slice(12, 19), replacement: "receive", history: [] },
+    });
+    await call({ mode: "suggest", doc: DOC });
+    expect([sentModel(0), sentModel(1), sentModel(2)]).toEqual([
+      "test-vendor/edit-model",
+      "test-vendor/edit-model",
+      "test-vendor/review-model",
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${KEY}`);
 
     const sent = JSON.parse(init.body as string);
-    expect(sent.model).toBe("test-vendor/test-model");
     expect(sent.max_tokens).toBe(1200);
     expect(sent.response_format.type).toBe("json_schema");
     expect(sent.response_format.json_schema.strict).toBe(true);
@@ -128,7 +143,7 @@ describe("SPEC 7.3: API route (OpenRouter mocked)", () => {
   });
 
   it("20b. a model that can't disable reasoning gets its lowest effort and a reasoning reserve", async () => {
-    vi.stubEnv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5");
+    vi.stubEnv("OPENROUTER_MODEL_REVIEW", "anthropic/claude-sonnet-5.5");
     fetchMock.mockResolvedValue(completion(JSON.stringify({ note: "n", edits: [] })));
     await call({ mode: "suggest", doc: DOC });
 

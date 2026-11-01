@@ -17,9 +17,6 @@ import {
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-/** Used when OPENROUTER_MODEL is unset. Chosen from the comparison in eval/reports/. */
-export const DEFAULT_MODEL = "anthropic/claude-haiku-5.5";
-
 export class SuggestError extends Error {
   constructor(
     readonly status: 400 | 413 | 500 | 502 | 504,
