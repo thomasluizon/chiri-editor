@@ -2,7 +2,7 @@
 
 ![Review doc on the sample document: real Sonnet 5.5 output](docs/screenshot-light.png)
 
-*Review doc on the sample document. This is real model output: two suggestions, shown inline (red struck = removed, green underlined = added), each with its reason in the margin. The document doesn't change until you accept. [Dark mode](docs/screenshot-dark.png).*
+*Review doc on the sample document. This is real model output: two suggestions, shown inline (red struck = removed, green underlined = added), each with its reason in the margin. The document doesn't change until you accept. [Dark mode](docs/screenshot-dark.png), also real output, from a separate run.*
 
 ## Run it
 
@@ -75,9 +75,10 @@ Built with Claude Code. The full sessions are in `ai-sessions/`, unedited except
 
 ## What it cost
 
-$0.057 of the $5 key, read from OpenRouter's `/api/v1/key`:
+About $0.064 of the $5 key: $0.057 read from OpenRouter's `/api/v1/key`, plus $0.006 for the last screenshot run, as reported by that call (the key's counter lags a few seconds):
 - two model-comparison runs: $0.002, then $0.030
 - browser walkthroughs and refine checks: $0.025
+- the dark-mode screenshot (one Review doc): $0.006
 
 Development and all tests run against mocks.
 
