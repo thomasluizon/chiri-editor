@@ -10,7 +10,8 @@ import type { Range, SuggestRequest, SuggestResponse } from "@/lib/types";
  */
 
 export type Check =
-  | { kind: "fixes"; label: string; typo: string; fixed: string }
+  /** Passes when the misspelling is gone once the suggestions are applied (rewording it away counts). */
+  | { kind: "fixes"; label: string; typo: string }
   /** "phrase": an edit must overlap `text` itself. "paragraph": anywhere in its paragraph. */
   | { kind: "touches"; label: string; text: string; within: "phrase" | "paragraph" }
   | { kind: "untouched"; label: string; text: string };
@@ -49,7 +50,7 @@ export const cases: EvalCase[] = [
     problems: ["Buried lede: the news is in paragraph 3", "Typo: recieve"],
     request: (doc) => ({ mode: "suggest", doc }),
     checks: [
-      { kind: "fixes", label: "fixes 'recieve'", typo: "recieve", fixed: "receive" },
+      { kind: "fixes", label: "fixes 'recieve'", typo: "recieve" },
       { kind: "touches", label: "reworks the opening (lede)", text: "This week the billing team continued working", within: "paragraph" },
       { kind: "untouched", label: "leaves the thanks paragraph alone", text: "Thanks to Priya" },
     ],
@@ -73,7 +74,7 @@ export const cases: EvalCase[] = [
     problems: ["Passive voice hiding who acted", "Vague claim: 'improve things a lot'", "Typo: definately"],
     request: (doc) => ({ mode: "suggest", doc }),
     checks: [
-      { kind: "fixes", label: "fixes 'definately'", typo: "definately", fixed: "definitely" },
+      { kind: "fixes", label: "fixes 'definately'", typo: "definately" },
       { kind: "touches", label: "rewrites 'Mistakes were made'", text: "Mistakes were made", within: "phrase" },
       { kind: "touches", label: "rewrites the vague claim", text: "things a lot", within: "phrase" },
       { kind: "untouched", label: "leaves the costs paragraph alone", text: "Running it is not free." },
@@ -98,10 +99,7 @@ export function runChecks(c: EvalCase, doc: string, res: SuggestResponse): Check
   const out: CheckResult[] = c.checks.map((check) => {
     switch (check.kind) {
       case "fixes":
-        return {
-          label: check.label,
-          pass: res.suggestions.some((s) => s.quote.includes(check.typo) && s.replacement.includes(check.fixed)),
-        };
+        return { label: check.label, pass: !applyAll(doc, res).includes(check.typo) };
       case "touches": {
         const target = check.within === "paragraph" ? paragraphOf(doc, check.text) : rangeOf(doc, check.text);
         return { label: check.label, pass: res.suggestions.some((s) => overlaps(s, target)) };
@@ -115,4 +113,11 @@ export function runChecks(c: EvalCase, doc: string, res: SuggestResponse): Check
   // contract: schema-valid (we got a response at all), ≤ 5 edits (zod), nothing outside the scope
   out.push({ label: "fits the contract", pass: !res.dropped.some((d) => d.why === "outside_scope") });
   return out;
+}
+
+/** The doc with every placed suggestion accepted (they never overlap, so apply back to front). */
+export function applyAll(doc: string, res: SuggestResponse): string {
+  return [...res.suggestions]
+    .sort((a, b) => b.from - a.from)
+    .reduce((text, s) => text.slice(0, s.from) + s.replacement + text.slice(s.to), doc);
 }

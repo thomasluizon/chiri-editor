@@ -1,8 +1,9 @@
-import { MAX_DOC_CHARS, MAX_OUTPUT_TOKENS, MAX_REASON_CHARS, UPSTREAM_TIMEOUT_MS } from "@/lib/limits";
+import { MAX_DOC_CHARS, MAX_REASON_CHARS, UPSTREAM_TIMEOUT_MS } from "@/lib/limits";
 import { refineMessages, suggestMessages, type ChatMessage } from "@/lib/prompts";
 import type { Range } from "@/lib/types";
 import type { z } from "zod";
 import { locateEdits, sharedEnds } from "./locate";
+import { maxTokensFor, modelConfig } from "./models";
 import {
   refineJsonSchema,
   refineOutputSchema,
@@ -123,8 +124,8 @@ async function callModel(
   const body = {
     model: opts.model,
     messages,
-    max_tokens: MAX_OUTPUT_TOKENS,
-    reasoning: { effort: "none" },
+    max_tokens: maxTokensFor(opts.model),
+    reasoning: { effort: modelConfig(opts.model).effort },
     response_format: { type: "json_schema", json_schema: { name: schemaName, strict: true, schema } },
     // only route to providers that honour every parameter above (structured outputs in particular)
     provider: { require_parameters: true },

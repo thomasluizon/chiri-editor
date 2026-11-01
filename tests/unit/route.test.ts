@@ -124,5 +124,17 @@ describe("SPEC 7.3: API route (OpenRouter mocked)", () => {
     expect(sent.response_format.type).toBe("json_schema");
     expect(sent.response_format.json_schema.strict).toBe(true);
     expect(sent.response_format.json_schema.schema.required).toEqual(["note", "edits"]);
+    expect(sent.reasoning).toEqual({ effort: "none" });
+  });
+
+  it("20b. a model that can't disable reasoning gets its lowest effort and a reasoning reserve", async () => {
+    vi.stubEnv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5");
+    fetchMock.mockResolvedValue(completion(JSON.stringify({ note: "n", edits: [] })));
+    await call({ mode: "suggest", doc: DOC });
+
+    const sent = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(sent.reasoning).toEqual({ effort: "low" });
+    // 1200 for the answer + 1024, Anthropic's minimum thinking budget, which counts inside max_tokens
+    expect(sent.max_tokens).toBe(2224);
   });
 });

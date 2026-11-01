@@ -12,8 +12,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { MAX_OUTPUT_TOKENS } from "@/lib/limits";
 import { suggestMessages } from "@/lib/prompts";
+import { maxTokensFor, modelConfig } from "@/lib/server/models";
 import { DEFAULT_MODEL, suggest, SuggestError } from "@/lib/server/suggest";
 import type { SuggestResponse } from "@/lib/types";
 import { cases, loadDoc, runChecks, type CheckResult, type EvalCase } from "./cases";
@@ -63,24 +63,36 @@ type Run = {
   costUsd: number;
   /** false when the provider returned no usage (e.g. a rejected request); costUsd is then the worst case. */
   costKnown: boolean;
+  reasoningTokens: number;
 };
 
 
 async function main() {
   const prices = await loadPrices(models.map((m) => m.id));
+  const before = await keyCredit();
   let spent = 0;
   const runs: Run[] = [];
 
-  console.log(`${dryRun ? "DRY RUN (fake model) · " : ""}${selected.length} cases × ${models.length} models · budget $${maxUsd.toFixed(4)}\n`);
+  console.log(`${dryRun ? "DRY RUN (fake model) · " : ""}${selected.length} cases × ${models.length} models · budget $${maxUsd.toFixed(4)}`);
+  for (const m of models) {
+    const cfg = modelConfig(m.id);
+    console.log(`  ${m.label}: reasoning ${cfg.effort}, max_tokens ${maxTokensFor(m.id)}`);
+  }
+  if (before) console.log(`OpenRouter key before: remaining ${usd(before.remaining)} of ${usd(before.limit)}`);
+  console.log("");
 
   for (const c of selected) {
     const doc = loadDoc(c.docFile);
     const req = c.request(doc);
     for (const model of models) {
-      const run: Run = { c, model, checks: [], latencyMs: 0, costUsd: 0, costKnown: true };
+      const run: Run = { c, model, checks: [], latencyMs: 0, costUsd: 0, costKnown: true, reasoningTokens: 0 };
       runs.push(run);
 
-      const worst = worstCaseUsd(req.mode === "suggest" ? suggestMessages(doc, req.instruction, req.scope) : [], prices[model.id]);
+      const worst = worstCaseUsd(
+        req.mode === "suggest" ? suggestMessages(doc, req.instruction, req.scope) : [],
+        prices[model.id],
+        maxTokensFor(model.id),
+      );
       if (spent + worst > maxUsd) {
         run.skipped = `budget: worst case $${worst.toFixed(4)} would exceed $${maxUsd.toFixed(4)}`;
         console.log(`skip  ${c.name} × ${model.label}: ${run.skipped}`);
@@ -89,7 +101,7 @@ async function main() {
 
       // Read usage from the raw provider response, so the cost is counted
       // even when the answer then fails validation.
-      let rawUsage: { prompt_tokens?: number; completion_tokens?: number; cost?: number } | undefined;
+      let rawUsage: RawUsage | undefined;
       const countingFetch: typeof fetch = async (input, init) => {
         const res = await (dryRun ? fakeOpenRouter : fetch)(input, init);
         try {
@@ -114,6 +126,7 @@ async function main() {
       // No usage back (rejected request): book the worst case against the budget, but label it as such.
       run.costKnown = known !== null;
       run.costUsd = known ?? worst;
+      run.reasoningTokens = rawUsage?.completion_tokens_details?.reasoning_tokens ?? 0;
       spent += run.costUsd;
 
       const passed = run.checks.filter((k) => k.pass).length;
@@ -124,15 +137,30 @@ async function main() {
     }
   }
 
+  // usage accounting on OpenRouter can lag a few seconds behind the last response
+  let after: Awaited<ReturnType<typeof keyCredit>> = null;
+  if (before) {
+    await new Promise((r) => setTimeout(r, 5000));
+    after = await keyCredit();
+  }
+  const credit =
+    before && after
+      ? `OpenRouter key (GET /api/v1/key): remaining ${usd(before.remaining)} → ${usd(after.remaining)} of ${usd(after.limit)}; this run used ${
+          before.usage !== null && after.usage !== null ? usd(after.usage - before.usage) : "n/a"
+        } by the key's own usage counter.`
+      : dryRun
+        ? "OpenRouter key: not queried (dry run)."
+        : "OpenRouter key: couldn't read /api/v1/key.";
+
   const summary = summaryTable(runs);
-  const report = renderReport(runs, summary, spent);
+  const report = renderReport(runs, summary, spent, credit);
   const out =
     args.out ??
     join("eval", "reports", `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${models.map((m) => m.label).join("-")}${dryRun ? "-dry" : ""}.md`);
   mkdirSync(join(out, ".."), { recursive: true });
   writeFileSync(out, report);
 
-  console.log(`\n${summary}\n\nBudget used: $${spent.toFixed(4)} of $${maxUsd.toFixed(4)} (worst case for calls that returned no usage)\nReport: ${out}`);
+  console.log(`\n${summary}\n\n${credit}\nBudget used: $${spent.toFixed(4)} of $${maxUsd.toFixed(4)} (worst case for calls that returned no usage)\nReport: ${out}`);
 }
 
 /* ---------- money ---------- */
@@ -159,13 +187,41 @@ async function loadPrices(ids: string[]): Promise<Record<string, Price>> {
   return out;
 }
 
-/** Upper bound: ~3 chars per input token (generous) and the full output allowance. */
-function worstCaseUsd(messages: { content: string }[], p: Price): number {
+type RawUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cost?: number;
+  completion_tokens_details?: { reasoning_tokens?: number };
+};
+
+/** Upper bound: ~3 chars per input token (generous) and the model's full max_tokens (answer + reasoning). */
+function worstCaseUsd(messages: { content: string }[], p: Price, maxTokens: number): number {
   const chars = messages.reduce((n, m) => n + m.content.length, 0);
-  return Math.ceil(chars / 3) * p.input + MAX_OUTPUT_TOKENS * p.output;
+  return Math.ceil(chars / 3) * p.input + maxTokens * p.output;
 }
 
-function costOf(u: { prompt_tokens?: number; completion_tokens?: number; cost?: number } | undefined, p: Price) {
+/**
+ * Remaining credit straight from OpenRouter's GET /api/v1/key (not a model
+ * call, not billed). Only money fields are read: `label` can contain a
+ * masked copy of the key, so it is never printed.
+ */
+async function keyCredit(): Promise<{ limit: number | null; remaining: number | null; usage: number | null } | null> {
+  if (dryRun) return null;
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/key", { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (!res.ok) return null;
+    const json = (await res.json()) as Record<string, unknown> & { data?: Record<string, unknown> };
+    const d = json.data ?? json;
+    const num = (v: unknown) => (typeof v === "number" ? v : null);
+    return { limit: num(d.limit), remaining: num(d.limit_remaining), usage: num(d.usage) };
+  } catch {
+    return null;
+  }
+}
+
+const usd = (v: number | null | undefined) => (typeof v === "number" ? `$${v.toFixed(4)}` : "n/a");
+
+function costOf(u: RawUsage | undefined, p: Price) {
   if (!u) return null;
   if (typeof u.cost === "number") return u.cost;
   return (u.prompt_tokens ?? 0) * p.input + (u.completion_tokens ?? 0) * p.output;
@@ -207,7 +263,7 @@ function summaryTable(runs: Run[]): string {
   return [header, header.map(() => "---"), ...rows, ...totals].map((r) => `| ${r.join(" | ")} |`).join("\n");
 }
 
-function renderReport(runs: Run[], summary: string, spent: number): string {
+function renderReport(runs: Run[], summary: string, spent: number, credit: string): string {
   const lines = [
     `# Model comparison`,
     ``,
@@ -220,6 +276,10 @@ function renderReport(runs: Run[], summary: string, spent: number): string {
     summary,
     ``,
     `Budget used: $${spent.toFixed(4)} (calls with no usage returned are counted at their worst case)`,
+    ``,
+    credit,
+    ``,
+    `Request settings: ${models.map((m) => `${m.label}: reasoning \`${modelConfig(m.id).effort}\`, max_tokens ${maxTokensFor(m.id)}`).join(" · ")}`,
   ];
 
   for (const c of selected) {
@@ -233,7 +293,9 @@ function renderReport(runs: Run[], summary: string, spent: number): string {
     row("Dropped", (r) => (r.res ? r.res.dropped.map((d) => `${d.why}: “${esc(clip(d.quote, 60))}”`).join("<br>") || "_none_" : ""));
     row("Checks", (r) => r.checks.map((k) => `${k.pass ? "✓" : "✗"} ${esc(k.label)}`).join("<br>"));
     row("Latency", (r) => (r.skipped ? "-" : `${(r.latencyMs / 1000).toFixed(1)} s`));
-    row("Tokens in/out", (r) => (r.res ? `${r.res.usage.inputTokens} / ${r.res.usage.outputTokens}` : "-"));
+    row("Tokens in/out", (r) =>
+      r.res ? `${r.res.usage.inputTokens} / ${r.res.usage.outputTokens}${r.reasoningTokens ? ` (${r.reasoningTokens} reasoning)` : ""}` : "-",
+    );
     row("Cost", (r) => (r.skipped ? "-" : money(r)));
   }
   return lines.join("\n") + "\n";

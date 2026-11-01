@@ -28,4 +28,4 @@ Planned, not wired yet:
 - **Next 16 writes `AGENTS.md`** on `next dev`, pointing to the bundled docs in `node_modules/next/dist/docs/`. Check those before using a Next API from memory.
 - **Design tokens** live in `DESIGN.md` and `app/tokens.css`. Change both together, and keep the two dark blocks in `tokens.css` identical.
 - **Live preview hides Markdown marks** but never edits the text. Positions are always raw-doc offsets. If you add a new syntax mark, update `findMarks` and its tests; a hidden mark must never sit inside a suggestion's range (`revealedLines` handles that).
-- **OpenRouter request shape:** don't add `temperature` (the chosen models don't support it, and `require_parameters` would then find no provider). Sonnet 5.5 rejects `reasoning: {effort: "none"}`.
+- **OpenRouter request shape:** don't add `temperature` (the chosen models don't support it, and `require_parameters` would then find no provider). Reasoning effort and any extra `max_tokens` are set per model in `lib/server/models.ts`. Sonnet 5.5 rejects `effort: "none"` and needs a 1024-token reasoning reserve.

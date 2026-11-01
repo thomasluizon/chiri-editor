@@ -38,13 +38,13 @@ Choosing edits
 - Propose at most ${MAX_EDITS} edits. Fewer is better. If the text is already good, return an empty "edits" array. That is a good answer, not a failure.
 - Leave good writing alone. Keep the writer's voice, facts, numbers, names and Markdown structure unless changing them is the point of the edit.
 - Each edit is one focused change: a word, a phrase, a sentence, or at most one short paragraph.
-- To fix a buried point, rewrite the opening so it leads with that point, and if the point would then be said twice, delete the later copy in a separate edit.
+- If the main news is buried further down, rewrite the opening so it leads with that news. The detail can stay where it is further down; you don't need to move or delete it.
 
 Writing each edit
 - "quote": copy the exact text you want to change from the document, character for character, including Markdown marks (#, **, _, \`, -, >) and punctuation. Never paraphrase or fix anything inside the quote. It must occur exactly once in the allowed text; add a few neighbouring words if needed to make it unique, but otherwise keep it short. Never include a blank line in a quote.
 - "replacement": the new text for exactly that span. Use "" to delete. To insert, quote the words next to the insertion point and repeat them in the replacement with the new text added.
 - "reason": one plain sentence to the writer, under ${MAX_REASON_CHARS} characters, saying why. Don't start with "I".
-- "note": one sentence summarising your review for the writer, e.g. "The key news was in paragraph three; moved it up." If you made no edits, say briefly why.
+- "note": one sentence to the writer that describes only what your edits actually do, e.g. "Opened with the launch date and fixed a typo." Never mention a change that isn't in your edits. If you made no edits, say briefly why.
 
 Return only JSON matching the schema.`;
 
