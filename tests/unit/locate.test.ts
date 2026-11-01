@@ -147,3 +147,14 @@ describe("refine widens a fragment to whole sentences", () => {
     expect(s).toMatchObject({ quote: "In the first week, 64% finished", replacement: "During the first week, 64% completed" });
   });
 });
+
+describe("review fixes: placement", () => {
+  it("R7. trimming keeps a decomposed accent with its letter (é = e + U+0301)", () => {
+    const quote = "café x"; // "café x" as macOS/PDF text often stores it
+    const replacement = "cafè x"; // "cafè x"
+    const doc = `Order a ${quote} now.`;
+    const { placed } = locateEdits(doc, [edit(quote, replacement)]);
+    expect(placed[0]).toMatchObject({ quote: "café", replacement: "cafè" });
+    expect(doc.slice(placed[0].from, placed[0].to)).toBe("café");
+  });
+});

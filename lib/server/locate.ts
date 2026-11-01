@@ -74,7 +74,8 @@ function occurrences(hay: string, needle: string, limit: number): number[] {
   return out;
 }
 
-const isWord = (ch: string | undefined) => ch !== undefined && /[\p{L}\p{N}_'’]/u.test(ch);
+// \p{M}: combining marks (e + U+0301 = é) belong to the letter before them
+const isWord = (ch: string | undefined) => ch !== undefined && /[\p{L}\p{M}\p{N}_'’]/u.test(ch);
 
 const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 
