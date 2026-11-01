@@ -5,7 +5,11 @@ import type { Suggestion, SuggestResponse } from "@/lib/types";
 import { mapSuggestion } from "./mapping";
 import { getSuggestions, setSuggestions } from "./suggestions";
 
-export type Placement = { added: Suggestion[]; stale: number; targetGone: boolean };
+/**
+ * stale: the text under a suggestion changed while the request ran.
+ * conflicted: it would overlap a suggestion already on screen.
+ */
+export type Placement = { added: Suggestion[]; stale: number; conflicted: number; targetGone: boolean };
 
 /**
  * Put a response's suggestions into the editor (SPEC D5). Each one is mapped
@@ -25,16 +29,21 @@ export function placeSuggestions(
 ): Placement {
   const current = getSuggestions(view.state).items;
   const original = replace && current.find((s) => s.id === replace.id);
-  if (replace && !original) return { added: [], stale: 0, targetGone: true };
+  if (replace && !original) return { added: [], stale: 0, conflicted: 0, targetGone: true };
 
   const keep = current.filter((s) => s.id !== replace?.id);
   const added: Suggestion[] = [];
   let stale = 0;
+  let conflicted = 0;
 
   for (const s of res.suggestions) {
     const mapped = mapSuggestion({ ...s }, changes, view.state.doc);
-    if (!mapped || [...keep, ...added].some((o) => conflicts(o, mapped))) {
+    if (!mapped) {
       stale++;
+      continue;
+    }
+    if ([...keep, ...added].some((o) => conflicts(o, mapped))) {
+      conflicted++;
       continue;
     }
     if (original && replace) {
@@ -44,8 +53,8 @@ export function placeSuggestions(
   }
 
   // A refinement that couldn't be placed leaves the original as it was.
-  if (replace && added.length === 0) return { added, stale, targetGone: false };
+  if (replace && added.length === 0) return { added, stale, conflicted, targetGone: false };
 
   view.dispatch({ effects: setSuggestions.of([...keep, ...added]) });
-  return { added, stale, targetGone: false };
+  return { added, stale, conflicted, targetGone: false };
 }

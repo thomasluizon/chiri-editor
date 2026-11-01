@@ -69,9 +69,9 @@ const sameRecord = (a: Record<string, number>, b: Record<string, number>) =>
   Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((k) => Math.abs(a[k] - b[k]) < 0.5);
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
-/** The note plus how many suggestions couldn't be placed (server drops + stale on arrival). */
-function resultText(res: SuggestResponse, stale: number): string {
-  const lost = res.dropped.length + stale;
+/** The note plus how many suggestions couldn't be placed (server drops + stale or conflicting on arrival). */
+function resultText(res: SuggestResponse, notPlaced: number): string {
+  const lost = res.dropped.length + notPlaced;
   return lost ? `${res.note} · ${lost} suggestion${lost === 1 ? "" : "s"} couldn’t be placed` : res.note;
 }
 
@@ -183,7 +183,7 @@ export function Workspace() {
     try {
       const res = await req.done;
       const placed = placeSuggestions(view, req.changes(), res);
-      setStatus({ text: resultText(res, placed.stale), tone: "note" });
+      setStatus({ text: resultText(res, placed.stale + placed.conflicted), tone: "note" });
     } catch (e) {
       if (!isAbort(e)) setStatus({ text: errorText(e), tone: "error" });
     } finally {
@@ -227,9 +227,9 @@ export function Workspace() {
       const placed = placeSuggestions(view, req.changes(), res);
       if (placed.added.length) {
         setAsk(null);
-        setStatus({ text: resultText(res, placed.stale), tone: "note" });
+        setStatus({ text: resultText(res, placed.stale + placed.conflicted), tone: "note" });
       } else {
-        setAsk((a) => a && { ...a, phase: "done", message: resultText(res, placed.stale), requestId: undefined });
+        setAsk((a) => a && { ...a, phase: "done", message: resultText(res, placed.stale + placed.conflicted), requestId: undefined });
       }
     } catch (e) {
       if (isAbort(e)) return;
@@ -281,7 +281,9 @@ export function Workspace() {
       } else if (!placed.targetGone) {
         const message = res.dropped.some((d) => d.why === "noop")
           ? "No better version. Kept it as it was."
-          : "The text changed while refining. Kept the original.";
+          : placed.conflicted
+            ? "The new version overlaps another suggestion, so it wasn't applied. Kept the original."
+            : "The text changed while refining. Kept the original.";
         setRefineFor(id, { phase: "message", message });
       }
     } catch (e) {
